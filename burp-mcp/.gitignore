@@ -1,0 +1,36 @@
+# Gradle build outputs — never committed; reviewers regenerate via `./gradlew shadowJar`
+build/
+.gradle/
+bin/
+
+# Compiled class files
+*.class
+
+# IDE files
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+
+# Test outputs / local runs
+out/
+target/
+.classpath
+.project
+.settings/
+
+# Log/debug artifacts
+*.log
+hs_err_pid*
+
+# Local override files (keep public ones tracked)
+local.properties
+gradle.properties.local
+
+# Note: gradle/wrapper/gradle-wrapper.jar IS committed (essential for ./gradlew bootstrap)
