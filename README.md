@@ -1,5 +1,7 @@
 # OWASP SecretSifter
 
+![OWASP SecretSifter](assets/secretsifter-hero.gif)
+
 SecretSifter is an OWASP Incubator project that finds credentials exposed in what web applications actually deliver to the browser: JavaScript bundles, configuration responses and other live content.
 
 Pre-deployment secret scanning looks at source code. Some credentials are only introduced at build time or runtime, so they never appear in the repository being scanned. SecretSifter inspects traffic as it reaches the browser and reports each finding with its location and evidence for a tester to assess.
