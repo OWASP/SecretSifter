@@ -36,8 +36,6 @@ Contributions are accepted under the [Developer Certificate of Origin](https://d
 
 - Hemanth Gorijala ([hemanth.gorijala@owasp.org](mailto:hemanth.gorijala@owasp.org))
 
-We are looking for a co-leader. If you're interested, open an issue or email the project leader.
-
 Project page: [owasp.org/projects/secretsifter](https://owasp.org/projects/secretsifter)
 
 ## License
