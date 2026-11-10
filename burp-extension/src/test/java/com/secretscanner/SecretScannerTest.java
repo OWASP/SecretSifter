@@ -57,17 +57,17 @@ class SecretScannerTest {
         @Test
         @DisplayName("Classic PAT in JS assignment is reported HIGH")
         void classicPat_inJsAssignment() {
-            String body = "const token = \"ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef1234\";";
+            String body = "const token = \"ghp_ABCDEFGHIJKLMNOP" + "QRSTUVWXYZabcdef1234\";";
             List<SecretFinding> findings = scanner.scanText(body, "application/javascript", "https://example.com/app.js");
-            assertFinding(findings, "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef1234", "HIGH");
+            assertFinding(findings, "ghp_ABCDEFGHIJKLMNOP" + "QRSTUVWXYZabcdef1234", "HIGH");
         }
 
         @Test
         @DisplayName("Fine-grained PAT in JSON response is reported HIGH")
         void finePat_inJson() {
-            String body = "{\"token\":\"github_pat_" + "A".repeat(82) + "\"}";
+            String body = "{\"token\":\"github_pat_" + synth(82) + "\"}";
             List<SecretFinding> findings = scanner.scanText(body, "application/json", "https://example.com/api");
-            assertFinding(findings, "github_pat_" + "A".repeat(82), "HIGH");
+            assertFinding(findings, "github_pat_" + synth(82), "HIGH");
         }
 
         @Test
@@ -91,9 +91,9 @@ class SecretScannerTest {
         @DisplayName("AKIA key in HTML script block is reported HIGH")
         void akiaKey_inHtmlScript() {
             // Note: values containing "example" are caught by isPlaceholder() — use a realistic key shape
-            String body = "<script>var cfg = {accessKey: \"AKIAJRFPXVWLQSZ7GN3K\"};</script>";
+            String body = "<script>var cfg = {accessKey: \"AKIAJRFPXV" + "WLQSZ7GN3K\"};</script>";
             List<SecretFinding> findings = scanner.scanText(body, "text/html", "https://example.com/");
-            assertFinding(findings, "AKIAJRFPXVWLQSZ7GN3K", "HIGH");
+            assertFinding(findings, "AKIAJRFPXV" + "WLQSZ7GN3K", "HIGH");
         }
 
         @Test
@@ -196,9 +196,9 @@ class SecretScannerTest {
         @Test
         @DisplayName("Live secret key is reported HIGH")
         void liveKey_reportedHigh() {
-            String body = "stripe.init(\"sk_live_" + "ABCDEFGHIJabcdefghij0123456\");";
+            String body = "stripe.init(\"sk_live_ABCDEFGHI" + "Jabcdefghij0123456\");";
             List<SecretFinding> findings = scanner.scanText(body, "application/javascript", "https://example.com/pay.js");
-            assertFinding(findings, "sk_live_" + "ABCDEFGHIJabcdefghij0123456", "HIGH");
+            assertFinding(findings, "sk_live_ABCDEFGHI" + "Jabcdefghij0123456", "HIGH");
         }
 
         @Test
@@ -266,10 +266,18 @@ class SecretScannerTest {
         @Test
         @DisplayName("OpenAI API key in JSON config blob is reported HIGH")
         void openaiKey_reportedHigh() {
-            String body = "{\"openai_key\":\"sk-" + "A".repeat(48) + "\"}";
+            String body = "{\"openai_key\":\"sk-" + synth(48) + "\"}";
             List<SecretFinding> findings = scanner.scanText(body, "application/json", "https://example.com/config");
-            assertFinding(findings, "sk-" + "A".repeat(48), "HIGH");
+            assertFinding(findings, "sk-" + synth(48), "HIGH");
         }
+    }
+
+    /** Synthetic token body of length n (mixed case and digits; all-"A" bodies are placeholders). */
+    private static String synth(int n) {
+        String base = "Q7mXp2Lr9Tz4Kw8Nv3Hb6Jd1Fs5Gc0Ye";
+        StringBuilder sb = new StringBuilder();
+        while (sb.length() < n) sb.append(base);
+        return sb.substring(0, n);
     }
 
     // =========================================================================

@@ -54,32 +54,28 @@ class SecretScannerTest {
     @Nested @DisplayName("GitHub PAT detection")
     class GithubPat {
 
-        // Test fixtures use string concatenation so source-text doesn't trip GitHub's secret-scanning.
         @Test
         @DisplayName("Classic PAT in JS assignment is reported HIGH")
         void classicPat_inJsAssignment() {
-            String token = "ghp" + "_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef1234";
-            String body  = "const token = \"" + token + "\";";
+            String body = "const token = \"ghp_ABCDEFGHIJKLMNOP" + "QRSTUVWXYZabcdef1234\";";
             List<SecretFinding> findings = scanner.scanText(body, "application/javascript", "https://example.com/app.js");
-            assertFinding(findings, token, "HIGH");
+            assertFinding(findings, "ghp_ABCDEFGHIJKLMNOP" + "QRSTUVWXYZabcdef1234", "HIGH");
         }
 
         @Test
         @DisplayName("Fine-grained PAT in JSON response is reported HIGH")
         void finePat_inJson() {
-            String token = "github_pat_" + "A".repeat(82);
-            String body  = "{\"token\":\"" + token + "\"}";
+            String body = "{\"token\":\"github_pat_" + synth(82) + "\"}";
             List<SecretFinding> findings = scanner.scanText(body, "application/json", "https://example.com/api");
-            assertFinding(findings, token, "HIGH");
+            assertFinding(findings, "github_pat_" + synth(82), "HIGH");
         }
 
         @Test
         @DisplayName("Short ghp_ prefix below minimum length is NOT reported")
         void classicPat_tooShort_notReported() {
-            String shortVal = "ghp" + "_SHORT";
-            String body = "var x = \"" + shortVal + "\";";
+            String body = "var x = \"ghp_SHORT\";";
             List<SecretFinding> findings = scanner.scanText(body, "text/html", "https://example.com/");
-            assertTrue(findings.stream().noneMatch(f -> f.matchedValue().equals(shortVal)),
+            assertTrue(findings.stream().noneMatch(f -> f.matchedValue().equals("ghp_SHORT")),
                     "Short ghp_ value should not be reported");
         }
     }
@@ -91,24 +87,21 @@ class SecretScannerTest {
     @Nested @DisplayName("AWS Access Key detection")
     class AwsKey {
 
-        // Test fixtures use string concatenation so source-text doesn't trip GitHub's secret-scanning.
         @Test
         @DisplayName("AKIA key in HTML script block is reported HIGH")
         void akiaKey_inHtmlScript() {
             // Note: values containing "example" are caught by isPlaceholder() — use a realistic key shape
-            String key  = "AK" + "IAJRFPXVWLQSZ7GN3K";
-            String body = "<script>var cfg = {accessKey: \"" + key + "\"};</script>";
+            String body = "<script>var cfg = {accessKey: \"AKIAJRFPXV" + "WLQSZ7GN3K\"};</script>";
             List<SecretFinding> findings = scanner.scanText(body, "text/html", "https://example.com/");
-            assertFinding(findings, key, "HIGH");
+            assertFinding(findings, "AKIAJRFPXV" + "WLQSZ7GN3K", "HIGH");
         }
 
         @Test
         @DisplayName("ASIA temporary key is reported HIGH")
         void asiaKey_reported() {
-            String key  = "AS" + "IAJRFPXVWLQSZ7GN3K";
-            String body = "AWS_ACCESS_KEY_ID=" + key;
+            String body = "AWS_ACCESS_KEY_ID=ASIAJRFPXVWLQSZ7GN3K";
             List<SecretFinding> findings = scanner.scanText(body, "text/plain", "https://example.com/config");
-            assertFinding(findings, key, "HIGH");
+            assertFinding(findings, "ASIAJRFPXVWLQSZ7GN3K", "HIGH");
         }
     }
 
@@ -200,14 +193,12 @@ class SecretScannerTest {
     @Nested @DisplayName("Stripe key detection")
     class Stripe {
 
-        // Test fixtures use string concatenation so source-text doesn't trip GitHub's secret-scanning push protection.
         @Test
         @DisplayName("Live secret key is reported HIGH")
         void liveKey_reportedHigh() {
-            String token = "sk_" + "live_ABCDEFGHIJabcdefghij0123456";
-            String body  = "stripe.init(\"" + token + "\");";
+            String body = "stripe.init(\"sk_live_ABCDEFGHI" + "Jabcdefghij0123456\");";
             List<SecretFinding> findings = scanner.scanText(body, "application/javascript", "https://example.com/pay.js");
-            assertFinding(findings, token, "HIGH");
+            assertFinding(findings, "sk_live_ABCDEFGHI" + "Jabcdefghij0123456", "HIGH");
         }
 
         @Test
@@ -215,10 +206,9 @@ class SecretScannerTest {
         void testKey_reported() {
             // Test keys are reported at LOW severity — they are real Stripe credentials but
             // only valid against Stripe's test environment; the rule down-grades severity accordingly.
-            String token = "sk_" + "test_ABCDEFGHIJabcdefghij0123456";
-            String body  = "const key = \"" + token + "\";";
+            String body = "const key = \"sk_test_ABCDEFGHIJabcdefghij0123456\";";
             List<SecretFinding> findings = scanner.scanText(body, "application/javascript", "https://example.com/pay.js");
-            assertFinding(findings, token, "LOW");
+            assertFinding(findings, "sk_test_ABCDEFGHIJabcdefghij0123456", "LOW");
         }
     }
 
@@ -276,10 +266,18 @@ class SecretScannerTest {
         @Test
         @DisplayName("OpenAI API key in JSON config blob is reported HIGH")
         void openaiKey_reportedHigh() {
-            String body = "{\"openai_key\":\"sk-" + "A".repeat(48) + "\"}";
+            String body = "{\"openai_key\":\"sk-" + synth(48) + "\"}";
             List<SecretFinding> findings = scanner.scanText(body, "application/json", "https://example.com/config");
-            assertFinding(findings, "sk-" + "A".repeat(48), "HIGH");
+            assertFinding(findings, "sk-" + synth(48), "HIGH");
         }
+    }
+
+    /** Synthetic token body of length n (mixed case and digits; all-"A" bodies are placeholders). */
+    private static String synth(int n) {
+        String base = "Q7mXp2Lr9Tz4Kw8Nv3Hb6Jd1Fs5Gc0Ye";
+        StringBuilder sb = new StringBuilder();
+        while (sb.length() < n) sb.append(base);
+        return sb.substring(0, n);
     }
 
     // =========================================================================

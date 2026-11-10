@@ -38,6 +38,10 @@ as the BApp Store edition.
 
 ![Settings — Custom Rules](screenshots/06_custom_rules.png)
 
+### Settings — Validation Tab *(this edition only)*
+
+![Settings — Validation](screenshots/08_validation.png)
+
 ### Settings — AI / MCP Tab *(this edition only)*
 
 ![Settings — AI / MCP](screenshots/07_ai_mcp.png)
@@ -49,8 +53,8 @@ as the BApp Store edition.
 | Feature | Detail |
 |---|---|
 | **Passive scanning** | Fires on every proxied response automatically; also sweeps existing sitemap on load |
-| **100+ anchored token rules** | GitHub, GitLab, AWS, Stripe, OpenAI, Slack, Shopify, Azure, GCP, Docker Hub, Clerk, and more |
-| **40+ context-gated rules** | Algolia, Cloudflare, Zendesk, Heroku, Datadog, Salesforce, Mistral, Cohere, Auth0, Supabase, and more |
+| **150+ anchored token rules** | GitHub, GitLab, AWS, Stripe, OpenAI, Slack, Shopify, Azure, GCP, Docker Hub, Clerk, and more |
+| **270+ context-gated rules** | Algolia, Cloudflare, Zendesk, Heroku, Datadog, Salesforce, Mistral, Cohere, Auth0, Supabase, and more |
 | **Request header scanning** | Detects credentials in custom headers (e.g. `App_key`, `Resource`, `Ocp-Apim-Subscription-Key`) |
 | **Generic KV & high-entropy scanner** | Catches unlisted keys using keyword + entropy heuristics |
 | **PII detection** | SSN, credit card numbers (Luhn-validated), credential-bearing URLs |
@@ -209,8 +213,8 @@ Expands to all site-map entries for the selected host(s). Optionally save an HTM
 
 | Tier | Rules Active | Use When |
 |---|---|---|
-| **FAST** | 100+ anchored vendor tokens | Quick recon, large site maps |
-| **LIGHT** | + High-entropy scanner + 40+ context-gated rules + DB strings | Standard pentest |
+| **FAST** | 150+ anchored vendor tokens | Quick recon, large site maps |
+| **LIGHT** | + High-entropy scanner + 270+ context-gated rules + DB strings | Standard pentest |
 | **FULL** | + PII (SSN, CC) + Generic KV + SSR state blobs + JSON walker + getter functions | Deep audit, bug bounty |
 
 ---

@@ -1,0 +1,30 @@
+{
+  "version": "3.4.1",
+  "buildDate": "2024-12-01T00:00:00Z",
+  "files": {
+    "main.js":      "/js/main.js",
+    "apim-auth.js": "/js/apim-auth.js",
+    "env.js":       "/js/env.js",
+    "firebase.js":  "/js/firebase.js",
+    "app.js":       "/js/app.js",
+    "style.css":    "/css/style.css"
+  },
+  "chunks": [
+    "/js/main.js",
+    "/js/apim-auth.js",
+    "/js/env.js",
+    "/js/firebase.js"
+  ],
+  "aws": {
+    "region":               "us-east-1",
+    "s3_bucket":            "acme-portal-prod-assets",
+    "cloudfront_id":        "E2QWRUHEXAMPLE",
+    "aws_access_key_id":    "zz5j90atz81NX8I9VXyw5d1cuH3eoGSI",
+    "aws_secret_access_key":"9drTg7KbLnWmXvQpFhY3cZeR4sBj6kNuV2wTa8E",
+    "deploy_role_arn":      "arn:aws:iam::123456789012:role/AcmePortalDeploy"
+  },
+  "cdn": {
+    "baseUrl":  "https://d2f3g4h5j6k7l8.cloudfront.net",
+    "apiKey":   "cdn-zzdAhmcEHIFX3BQt5Z1ijycvp7RrbZTMyEhc"
+  }
+}

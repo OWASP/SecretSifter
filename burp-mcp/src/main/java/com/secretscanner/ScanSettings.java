@@ -18,12 +18,37 @@ public class ScanSettings {
 
     public enum ScanTier { FAST, LIGHT, FULL }
 
+    /** Largest response body scanned; bigger bodies are skipped (and logged) to bound memory. */
+    public static final int MAX_SCAN_BYTES = 20 * 1024 * 1024;
+
+    /**
+     * True for binary media types that cannot carry text secrets (images other than SVG,
+     * video, audio, fonts). Their bodies are not scanned.
+     */
+    public static boolean isBinaryMedia(String contentType) {
+        if (contentType == null) return false;
+        String ct = contentType.toLowerCase(java.util.Locale.ROOT).trim();
+        if (ct.startsWith("image/")) return !ct.startsWith("image/svg");
+        return ct.startsWith("video/") || ct.startsWith("audio/") || ct.startsWith("font/")
+                || ct.startsWith("application/font-") || ct.startsWith("application/x-font-");
+    }
+
     // ---- preference keys ----
     private static final String KEY_ENABLED        = "ss.enabled";
     private static final String KEY_TIER           = "ss.tier";
     private static final String KEY_ENTROPY        = "ss.entropy";        // stored as String
     private static final String KEY_PII            = "ss.pii";
     private static final String KEY_CDNLIST        = "ss.cdnlist";        // newline-separated
+    private static final String KEY_CDN_DEFAULTS_SEEN = "ss.cdnlist.defaultsSeen"; // defaults known at last save
+
+    /** Built-in CDN defaults, so a save can record which ones the user has seen. */
+    private static final List<String> CDN_DEFAULTS = List.copyOf(new ScanSettings().cdnBlocklist);
+
+    /** Old bare-label entries that never matched a host, mapped to real domains ("" = drop). */
+    private static final java.util.Map<String, String> LEGACY_CDN_ENTRIES = java.util.Map.of(
+            "cdnjs", "cdnjs.cloudflare.com", "jsdelivr", "jsdelivr.net", "unpkg", "unpkg.com",
+            "stackpath", "bootstrapcdn.com", "maxcdn", "bootstrapcdn.com", "doubleclick", "doubleclick.net",
+            "firebase", "");
     private static final String KEY_SCAN_REQUESTS  = "ss.scan_requests";  // scan req headers/body
     private static final String KEY_KEY_BLOCKLIST  = "ss.keyblocklist";   // newline-separated key name suppression list
     private static final String KEY_KEY_ALLOWLIST  = "ss.keyallowlist";   // newline-separated key name force-include list
@@ -31,6 +56,12 @@ public class ScanSettings {
     private static final String KEY_CUSTOM_RULES         = "ss.customrules";        // newline-separated rule lines
     private static final String KEY_CUSTOM_RULES_ENABLED = "ss.customrules_enabled";
     private static final String KEY_CUSTOM_RULES_ONLY    = "ss.customrules_only";   // raw mode: skip built-in scanners + FP gates
+    private static final String KEY_VALIDATION_ENABLED = "ss.validation_enabled";
+    private static final String KEY_LIVE_VALIDATION    = "ss.live_validation_enabled";  // master network opt-in (off by default)
+    private static final String KEY_VALIDATION_IDS     = "ss.validation_ids";        // newline-separated catalog ids
+    private static final String KEY_VALIDATION_IDS_SET = "ss.validation_ids_set";    // "1" once the user has saved a selection
+    private static final String KEY_VALIDATION_CUSTOM  = "ss.validation_custom";     // newline-separated custom rule lines
+    private static final String KEY_VALIDATION_BASEURLS = "ss.validation_baseurls";  // newline-separated "provider = https://host" lines
     private static final String KEY_MCP_ENABLED          = "ss.mcp_enabled";
     private static final String KEY_AI_PROVIDER  = "ss.ai_provider";
     private static final String KEY_AI_API_KEY   = "ss.ai_api_key";
@@ -49,6 +80,12 @@ public class ScanSettings {
     // and bypass the FP gates (isProbableSecretValue, placeholder check, webpack-hash filter).
     // Allowlist/blocklist/CDN blocklist still apply. Burp's audit (SecretScanCheck) is unaffected.
     private volatile boolean   customRulesOnly      = false;
+    private volatile boolean validationEnabled = false;
+    private volatile boolean liveValidationEnabled = false;   // network validation: off until the operator opts in
+    private final java.util.Set<String> validationEnabledIds = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private volatile boolean validationIdsInitialised = false;
+    private final List<String> validationCustomRules = new ArrayList<>();
+    private final List<String> validationBaseUrls = new ArrayList<>();   // "provider = https://host" lines (self-hosted overrides)
     private volatile boolean   mcpEnabled           = false;
     private volatile AiTriageProvider.Provider aiProvider  = AiTriageProvider.Provider.BURP;
     private volatile String                    aiApiKey    = "";
@@ -74,11 +111,12 @@ public class ScanSettings {
 
     private final List<String> cdnBlocklist = new ArrayList<>(Arrays.asList(
             // JS/CSS CDNs — static asset delivery, no secrets expected
-            "cdnjs", "jsdelivr", "unpkg", "ajax.googleapis.com",
-            "ajax.microsoft.com", "code.jquery.com", "stackpath", "maxcdn",
-            "fonts.googleapis.com", "fonts.gstatic.com", "gstatic.com",
+            "cdnjs.cloudflare.com", "jsdelivr.net", "unpkg.com", "ajax.googleapis.com",
+            "ajax.microsoft.com", "code.jquery.com", "bootstrapcdn.com", "ajax.aspnetcdn.com",
+            "fonts.googleapis.com", "fonts.gstatic.com", "gstatic.com", "polyfill.io",
             // Analytics / tracking — no secrets, just noise
-            "firebase", "segment.com", "segment.io", "doubleclick",
+            "segment.com", "segment.io", "doubleclick.net",
+            "cdn.amplitude.com", "cdn.mxpnl.com", "cdn.heapanalytics.com", "cdn.optimizely.com",
             "googletagmanager.com", "hotjar.com",
             "cloudflareinsights.com", "cdn.cookielaw.org",
             "dc.services.visualstudio.com",
@@ -137,6 +175,54 @@ public class ScanSettings {
     public boolean isCustomRulesOnly()                   { return customRulesOnly; }
     public void    setCustomRulesOnly(boolean b)         { customRulesOnly = b; }
 
+    public boolean isValidationEnabled()                 { return validationEnabled; }
+    public void    setValidationEnabled(boolean b)       { validationEnabled = b; }
+    public boolean isLiveValidationEnabled()             { return liveValidationEnabled; }
+    public void    setLiveValidationEnabled(boolean b)   { liveValidationEnabled = b; }
+
+    /**
+     * Selected catalog ids; until the user saves a selection, defaults to ALL catalog entries so that
+     * turning the Validate toggle on checks everything applicable. Offline checks (JWT expiry, Luhn)
+     * run immediately; live/network checks still run only when the separate "Allow live (network)
+     * validation" switch is on, so defaulting them selected never contacts anything on its own.
+     */
+    public java.util.Set<String> getValidationEnabledIds() {
+        if (validationIdsInitialised) return java.util.Set.copyOf(validationEnabledIds);
+        java.util.Set<String> def = new java.util.HashSet<>();
+        for (com.secretscanner.core.ValidationRule vr : ValidationCatalog.builtIn())
+            def.add(vr.id());
+        return def;
+    }
+    public void setValidationEnabledIds(java.util.Collection<String> ids) {
+        validationEnabledIds.clear();
+        if (ids != null) validationEnabledIds.addAll(ids);
+        validationIdsInitialised = true;
+    }
+    public List<String> getValidationCustomRules()       { return new ArrayList<>(validationCustomRules); }
+    public void setValidationCustomRules(java.util.Collection<String> lines) {
+        validationCustomRules.clear();
+        if (lines != null) for (String l : lines) if (l != null && !l.isBlank()) validationCustomRules.add(l);
+    }
+
+    /** Self-hosted base-URL overrides, as raw "provider = https://host" lines. */
+    public List<String> getValidationBaseUrls()          { return new ArrayList<>(validationBaseUrls); }
+    public void setValidationBaseUrls(java.util.Collection<String> lines) {
+        validationBaseUrls.clear();
+        if (lines != null) for (String l : lines) if (l != null && !l.isBlank()) validationBaseUrls.add(l);
+    }
+    /** Parsed provider → base-URL map from the override lines (case-insensitive provider key). */
+    public java.util.Map<String, String> validationBaseUrlMap() {
+        java.util.Map<String, String> m = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        for (String l : validationBaseUrls) {
+            int eq = l.indexOf('=');
+            if (eq <= 0) continue;
+            String prov = l.substring(0, eq).trim();
+            String url  = l.substring(eq + 1).trim();
+            if (!prov.isEmpty() && !url.isEmpty()) m.put(prov, url);
+        }
+        return m;
+    }
+
     public boolean isMcpEnabled()                        { return mcpEnabled; }
     public void    setMcpEnabled(boolean b)              { mcpEnabled = b; }
 
@@ -171,8 +257,17 @@ public class ScanSettings {
     public synchronized boolean isKeyBlocked(String keyName) {
         if (keyName == null || keyName.isBlank()) return false;
         String kl = keyName.toLowerCase();
+        // Framework "public" env prefixes (NEXT_PUBLIC_, VITE_PUBLIC_ ...) mark values the build
+        // ships to the browser on purpose. A secret-named key under such a prefix
+        // (NEXT_PUBLIC_STRIPE_SECRET_KEY, NEXT_PUBLIC_DB_PASSWORD) is a mistake worth reporting.
+        boolean secretNamed = kl.contains("secret") || kl.contains("password") || kl.contains("passwd")
+                || kl.contains("private") || kl.contains("service_role") || kl.contains("servicerole");
         for (String entry : keyBlocklist) {
-            if (!entry.isBlank() && kl.contains(entry.toLowerCase())) return true;
+            if (entry.isBlank()) continue;
+            String e = entry.toLowerCase();
+            if (!kl.contains(e)) continue;
+            if (secretNamed && e.endsWith("public_")) continue;
+            return true;
         }
         return false;
     }
@@ -226,8 +321,8 @@ public class ScanSettings {
         } else {
             host = urlOrHost.toLowerCase();
         }
-        // Broad heuristic: any hostname starting with "cdn." is an asset CDN
-        if (host.startsWith("cdn.") || host.equals("cdn")) return true;
+        // No blanket "cdn.*" rule: first-party asset hosts (cdn.<company>.com) carry the
+        // application's own bundles. Third-party CDNs are listed by domain in cdnBlocklist.
         synchronized (this) {
             for (String entry : cdnBlocklist) {
                 // Domain-suffix match: entry "segment.com" blocks cdn.segment.com,
@@ -253,11 +348,18 @@ public class ScanSettings {
             prefs.setBoolean(KEY_SCAN_REQUESTS,        scanRequestsEnabled);
             prefs.setBoolean(KEY_ALLOW_INSECURE_SSL,   allowInsecureSsl);
             prefs.setString(KEY_CDNLIST,               String.join("\n", getCdnBlocklist()));
+            prefs.setString(KEY_CDN_DEFAULTS_SEEN,     String.join("\n", CDN_DEFAULTS));
             prefs.setString(KEY_KEY_BLOCKLIST,         String.join("\n", getKeyBlocklist()));
             prefs.setString(KEY_KEY_ALLOWLIST,         String.join("\n", getKeyAllowlist()));
             prefs.setString(KEY_CUSTOM_RULES,          String.join("\n", getCustomRules()));
             prefs.setBoolean(KEY_CUSTOM_RULES_ENABLED, customRulesEnabled);
             prefs.setBoolean(KEY_CUSTOM_RULES_ONLY,    customRulesOnly);
+            prefs.setBoolean(KEY_VALIDATION_ENABLED,    validationEnabled);
+            prefs.setBoolean(KEY_LIVE_VALIDATION,       liveValidationEnabled);
+            prefs.setString(KEY_VALIDATION_IDS,         String.join("\n", getValidationEnabledIds()));
+            prefs.setBoolean(KEY_VALIDATION_IDS_SET,    validationIdsInitialised);
+            prefs.setString(KEY_VALIDATION_CUSTOM,      String.join("\n", validationCustomRules));
+            prefs.setString(KEY_VALIDATION_BASEURLS,    String.join("\n", validationBaseUrls));
             prefs.setBoolean(KEY_MCP_ENABLED,          mcpEnabled);
             prefs.setString(KEY_AI_PROVIDER,           aiProvider.name());
             prefs.setString(KEY_AI_API_KEY,            aiApiKey);
@@ -276,11 +378,18 @@ public class ScanSettings {
             prefs.setBoolean(KEY_SCAN_REQUESTS,       scanRequestsEnabled);
             prefs.setBoolean(KEY_ALLOW_INSECURE_SSL,  allowInsecureSsl);
             prefs.setString(KEY_CDNLIST,              String.join("\n", getCdnBlocklist()));
+            prefs.setString(KEY_CDN_DEFAULTS_SEEN,    String.join("\n", CDN_DEFAULTS));
             prefs.setString(KEY_KEY_BLOCKLIST,    String.join("\n", getKeyBlocklist()));
             prefs.setString(KEY_KEY_ALLOWLIST,    String.join("\n", getKeyAllowlist()));
             prefs.setString(KEY_CUSTOM_RULES,         String.join("\n", getCustomRules()));
             prefs.setBoolean(KEY_CUSTOM_RULES_ENABLED, customRulesEnabled);
             prefs.setBoolean(KEY_CUSTOM_RULES_ONLY,    customRulesOnly);
+            prefs.setBoolean(KEY_VALIDATION_ENABLED,    validationEnabled);
+            prefs.setBoolean(KEY_LIVE_VALIDATION,       liveValidationEnabled);
+            prefs.setString(KEY_VALIDATION_IDS,         String.join("\n", getValidationEnabledIds()));
+            prefs.setBoolean(KEY_VALIDATION_IDS_SET,    validationIdsInitialised);
+            prefs.setString(KEY_VALIDATION_CUSTOM,      String.join("\n", validationCustomRules));
+            prefs.setString(KEY_VALIDATION_BASEURLS,    String.join("\n", validationBaseUrls));
             prefs.setBoolean(KEY_MCP_ENABLED,          mcpEnabled);
             prefs.setString(KEY_AI_PROVIDER,           aiProvider.name());
             prefs.setString(KEY_AI_API_KEY,            aiApiKey);
@@ -319,15 +428,24 @@ public class ScanSettings {
 
             String cdnStr = prefs.getString(KEY_CDNLIST);
             if (cdnStr != null && !cdnStr.isBlank()) {
-                List<String> loaded = new ArrayList<>();
+                List<String> defaults = getCdnBlocklist();
+                java.util.LinkedHashSet<String> merged = new java.util.LinkedHashSet<>();
                 for (String line : cdnStr.split("\n")) {
                     String trimmed = line.trim();
-                    if (!trimmed.isEmpty()) loaded.add(trimmed);
+                    if (trimmed.isEmpty()) continue;
+                    String fixed = LEGACY_CDN_ENTRIES.getOrDefault(trimmed.toLowerCase(java.util.Locale.ROOT), trimmed);
+                    if (!fixed.isEmpty()) merged.add(fixed);
                 }
-                // Merge with built-in defaults: ensures entries added in updated JARs
-                // are never silently dropped when old preferences are loaded on upgrade.
-                java.util.LinkedHashSet<String> merged = new java.util.LinkedHashSet<>(getCdnBlocklist());
-                merged.addAll(loaded);
+                // Add only defaults this user has never seen (introduced by a newer JAR); defaults
+                // the user deliberately removed stay removed.
+                String seenStr = prefs.getString(KEY_CDN_DEFAULTS_SEEN);
+                java.util.Set<String> seen = new java.util.HashSet<>();
+                if (seenStr != null) {
+                    for (String l : seenStr.split("\n")) if (!l.isBlank()) seen.add(l.trim());
+                } else {
+                    seen.addAll(merged);                  // first load after upgrade: keep the user's list
+                }
+                for (String d : defaults) if (!seen.contains(d)) merged.add(d);
                 setCdnBlocklist(new ArrayList<>(merged));
             }
 
@@ -356,6 +474,30 @@ public class ScanSettings {
 
             Boolean customRulesOnlyEn = prefs.getBoolean(KEY_CUSTOM_RULES_ONLY);
             if (customRulesOnlyEn != null) customRulesOnly = customRulesOnlyEn;
+
+            Boolean valEn = prefs.getBoolean(KEY_VALIDATION_ENABLED);
+            if (valEn != null) validationEnabled = valEn;
+            Boolean liveEn = prefs.getBoolean(KEY_LIVE_VALIDATION);
+            if (liveEn != null) liveValidationEnabled = liveEn;
+            Boolean valSet = prefs.getBoolean(KEY_VALIDATION_IDS_SET);
+            if (Boolean.TRUE.equals(valSet)) {
+                String ids = prefs.getString(KEY_VALIDATION_IDS);
+                java.util.Set<String> set = new java.util.HashSet<>();
+                if (ids != null) for (String s2 : ids.split("\n")) if (!s2.isBlank()) set.add(s2.trim());
+                setValidationEnabledIds(set);
+            }
+            String valCustom = prefs.getString(KEY_VALIDATION_CUSTOM);
+            if (valCustom != null) {
+                java.util.List<String> lines = new java.util.ArrayList<>();
+                for (String s2 : valCustom.split("\n")) if (!s2.isBlank()) lines.add(s2);
+                setValidationCustomRules(lines);
+            }
+            String valBaseUrls = prefs.getString(KEY_VALIDATION_BASEURLS);
+            if (valBaseUrls != null) {
+                java.util.List<String> lines = new java.util.ArrayList<>();
+                for (String s2 : valBaseUrls.split("\n")) if (!s2.isBlank()) lines.add(s2);
+                setValidationBaseUrls(lines);
+            }
 
             Boolean mcpEn = prefs.getBoolean(KEY_MCP_ENABLED);
             if (mcpEn != null) mcpEnabled = mcpEn;
@@ -402,6 +544,12 @@ public class ScanSettings {
             ));
             keyAllowlist.clear();
             customRules.clear();
+            validationEnabled = false;
+            liveValidationEnabled = false;
+            validationEnabledIds.clear();
+            validationIdsInitialised = false;
+            validationCustomRules.clear();
+            validationBaseUrls.clear();
             cdnBlocklist.clear();
             cdnBlocklist.addAll(Arrays.asList(
                     "cdnjs", "jsdelivr", "unpkg", "ajax.googleapis.com",

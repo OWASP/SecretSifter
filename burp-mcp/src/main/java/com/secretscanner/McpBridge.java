@@ -49,12 +49,7 @@ public class McpBridge {
     private volatile java.util.concurrent.CompletableFuture<List<AiTriageProvider.TriageResult>> pendingTriageFuture;
     private volatile List<SecretFinding> pendingTriageFindings;
     private volatile ServerSocket                 serverSocket;
-    private final ExecutorService                 workerPool =
-            Executors.newCachedThreadPool(r -> {
-                Thread t = new Thread(r, "SecretSifter-MCP-Worker");
-                t.setDaemon(true);
-                return t;
-            });
+    private volatile ExecutorService              workerPool = newWorkerPool();
 
     public McpBridge(BulkScanPanel bulkPanel,
                      ScanSettings settings,
@@ -99,6 +94,8 @@ public class McpBridge {
     public java.util.concurrent.CompletableFuture<List<AiTriageProvider.TriageResult>> enqueueTriage(List<SecretFinding> findings) {
         java.util.concurrent.CompletableFuture<List<AiTriageProvider.TriageResult>> future =
                 new java.util.concurrent.CompletableFuture<>();
+        // a newer request replaces an unanswered one: release whoever is waiting on the old one
+        cancelPendingTriage();
         pendingTriageFuture   = future;
         pendingTriageFindings = new ArrayList<>(findings);
         log("[MCP] Triage request queued: " + findings.size() + " findings — call secretsifter_get_triage_request");
@@ -123,8 +120,21 @@ public class McpBridge {
     // Lifecycle
     // =========================================================================
 
+    /** Bounded pool: a flood of local connections cannot spawn unbounded threads. */
+    private static ExecutorService newWorkerPool() {
+        java.util.concurrent.ThreadPoolExecutor pool = new java.util.concurrent.ThreadPoolExecutor(
+                4, 4, 60, TimeUnit.SECONDS, new java.util.concurrent.ArrayBlockingQueue<>(64), r -> {
+                    Thread t = new Thread(r, "SecretSifter-MCP-Worker");
+                    t.setDaemon(true);
+                    return t;
+                }, new java.util.concurrent.ThreadPoolExecutor.DiscardPolicy());
+        pool.allowCoreThreadTimeOut(true);
+        return pool;
+    }
+
     public void start() {
         if (serverSocket != null && !serverSocket.isClosed()) return;
+        if (workerPool.isShutdown()) workerPool = newWorkerPool();   // stop() shut the old one down
         try {
             ServerSocket ss = new ServerSocket();
             ss.setReuseAddress(true);
@@ -136,7 +146,11 @@ public class McpBridge {
                     try {
                         Socket client = ss.accept();
                         client.setSoTimeout(10_000);
-                        workerPool.submit(() -> handleConnection(client));
+                        try {
+                            workerPool.submit(() -> handleConnection(client));
+                        } catch (java.util.concurrent.RejectedExecutionException re) {
+                            try { client.close(); } catch (IOException ignored) {}
+                        }
                     } catch (IOException e) {
                         if (!ss.isClosed())
                             log("[McpBridge] Accept error: " + e.getMessage());
@@ -147,7 +161,8 @@ public class McpBridge {
             acceptor.start();
 
             log("[McpBridge] MCP server listening on http://127.0.0.1:" + PORT + PATH);
-            log("[McpBridge] Auth token: " + authToken);
+            log("[McpBridge] Auth token: " + maskToken(authToken)
+                    + "  (full token and client config: SecretSifter → Settings → AI / MCP tab)");
             log("[McpBridge] Add to ~/.claude/settings.json → mcpServers.secretsifter");
         } catch (IOException e) {
             log("[McpBridge] Failed to start: " + e.getMessage());
@@ -184,14 +199,30 @@ public class McpBridge {
             // --- parse headers ---
             Map<String, String> headers = new LinkedHashMap<>();
             String line;
+            int headerCount = 0;
             while ((line = readLine(in)) != null && !line.isBlank()) {
+                if (++headerCount > 100) return;                       // header flood
                 int colon = line.indexOf(':');
                 if (colon > 0)
                     headers.put(line.substring(0, colon).trim().toLowerCase(),
                                 line.substring(colon + 1).trim());
             }
 
-            // --- CORS pre-flight ---
+            // Only local MCP clients: reject browser-origin requests and non-loopback Host headers
+            // (blocks DNS-rebinding pages from reaching the server through the browser)
+            String hostHdr = headers.getOrDefault("host", "");
+            if (!hostHdr.isEmpty() && !hostHdr.matches("(?i)(127\\.0\\.0\\.1|localhost|\\[::1\\])(:\\d+)?")) {
+                writeResponse(out, 403, "Forbidden", "application/json",
+                        "{\"error\":\"forbidden host\"}".getBytes(StandardCharsets.UTF_8));
+                return;
+            }
+            if (headers.containsKey("origin") && !headers.get("origin").matches("(?i)https?://(127\\.0\\.0\\.1|localhost)(:\\d+)?")) {
+                writeResponse(out, 403, "Forbidden", "application/json",
+                        "{\"error\":\"forbidden origin\"}".getBytes(StandardCharsets.UTF_8));
+                return;
+            }
+
+            // --- pre-flight: no cross-origin access is granted ---
             if ("OPTIONS".equals(method)) {
                 writeResponse(out, 204, "No Content", "", null);
                 return;
@@ -213,7 +244,8 @@ public class McpBridge {
 
             // --- auth check ---
             String auth = headers.getOrDefault("authorization", "");
-            if (!auth.equals("Bearer " + authToken)) {
+            if (!java.security.MessageDigest.isEqual(auth.getBytes(StandardCharsets.UTF_8),
+                    ("Bearer " + authToken).getBytes(StandardCharsets.UTF_8))) {
                 writeResponse(out, 401, "Unauthorized", "application/json",
                         "{\"error\":\"invalid or missing Bearer token\"}".getBytes(StandardCharsets.UTF_8));
                 return;
@@ -280,8 +312,8 @@ public class McpBridge {
         JsonObject toolsCap = new JsonObject();
         caps.add("tools", toolsCap);
         JsonObject serverInfo = new JsonObject();
-        serverInfo.addProperty("name", "SecretSifter");
-        serverInfo.addProperty("version", "1.2.3");
+        serverInfo.addProperty("name", Branding.NAME);
+        serverInfo.addProperty("version", SecretSifterVersion.VALUE);
         JsonObject result = new JsonObject();
         result.addProperty("protocolVersion", clientVersion);
         result.add("serverInfo", serverInfo);
@@ -313,10 +345,10 @@ public class McpBridge {
                 "Clear all findings and reset the results table.",
                 emptySchema()));
         tools.add(makeTool("secretsifter_update_finding_severity",
-                "Update the severity (and optionally confidence) of a specific finding row. Use the row number from the # column (1-based).",
+                "Update the severity (and optionally confidence) of a finding. Address it by issue ID (SS-102426-7K4M2Q, all sightings of that secret) or occurrence ref (SS-102426-7K4M2Q@4f9a1c, one sighting) from get_findings.",
                 updateSeveritySchema()));
         tools.add(makeTool("secretsifter_delete_finding",
-                "Delete one or more findings from the dashboard by their # column row numbers. Without confirmed=true the tool returns a preview; set confirmed=true to execute the deletion.",
+                "Delete one or more findings from the dashboard by issue ID or occurrence ref. Without confirmed=true the tool returns a preview listing each finding; set confirmed=true to execute the deletion.",
                 deleteFindingSchema()));
         tools.add(makeTool("secretsifter_get_settings",
                 "Return all current scanner settings: tier, entropy threshold, PII toggle, CDN blocklist, key blocklist/allowlist, and custom rules.",
@@ -430,6 +462,10 @@ public class McpBridge {
         for (SecretFinding f : findings) {
             if (filter != null && !filter.equals(f.severity().toUpperCase())) continue;
             JsonObject o = new JsonObject();
+            o.addProperty("issueId",     f.issueId());
+            o.addProperty("ref",         f.occurrenceRef());
+            o.addProperty("fingerprint", f.fingerprint());
+            o.addProperty("validation",  f.validationLabel());
             o.addProperty("ruleId",      nvl(f.ruleId()));
             o.addProperty("ruleName",    nvl(f.ruleName()));
             o.addProperty("keyName",     nvl(f.keyName()));
@@ -464,15 +500,20 @@ public class McpBridge {
         if (findings.isEmpty()) return "No findings to export.";
 
         String ts   = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        Path   dest = Paths.get(System.getProperty("user.home"),
-                "secretsifter_report_" + ts + "." + (format.equals("zip") ? "zip" : format));
+        String ext  = format.equals("html-redacted") ? "html" : format;
+        Path   dest = Paths.get(System.getProperty("user.home"), "secretsifter_report_" + ts
+                + (format.equals("html-redacted") ? "_redacted" : "") + "." + ext);
 
         switch (format) {
-            case "csv":  writeCsv(findings, dest);  break;
-            case "json": writeJson(findings, dest); break;
-            case "zip":  writeZip(findings, ts, dest); break;
-            default:     writeHtml(findings, dest); break;
+            case "csv":   writeCsv(findings, dest);  break;
+            case "json":  writeJson(findings, dest); break;
+            case "zip":   writeZip(findings, ts, dest); break;
+            case "sarif": Files.writeString(dest, SarifWriter.write(findings, SecretSifterVersion.VALUE), StandardCharsets.UTF_8); break;
+            case "html-redacted":
+                Files.writeString(dest, HtmlReportGenerator.generate(findings, null, "html", true), StandardCharsets.UTF_8); break;
+            default:      writeHtml(findings, dest); break;
         }
+        BulkScanPanel.restrictToOwner(dest);
         return "Exported " + findings.size() + " finding(s) to: " + dest;
     }
 
@@ -487,11 +528,12 @@ public class McpBridge {
     }
 
     private String toolUpdateSeverity(JsonObject args) throws Exception {
-        if (!args.has("row"))
-            throw new IllegalArgumentException("'row' is required (1-based # from the findings table)");
+        if (!args.has("id"))
+            throw new IllegalArgumentException("'id' is required: an issue ID (SS-102426-7K4M2Q, every sighting of that "
+                    + "secret) or an occurrence ref (SS-102426-7K4M2Q@4f9a1c, one sighting), as returned by get_findings");
         if (!args.has("severity"))
             throw new IllegalArgumentException("'severity' is required");
-        int    row      = args.get("row").getAsInt();
+        String id       = args.get("id").getAsString();
         String severity = args.get("severity").getAsString().toUpperCase();
         String conf     = args.has("confidence") ? args.get("confidence").getAsString().toUpperCase() : null;
 
@@ -500,53 +542,51 @@ public class McpBridge {
             throw new IllegalArgumentException(
                     "Invalid severity: " + severity + ". Use CRITICAL, HIGH, MEDIUM, LOW, or INFORMATION.");
 
-        final boolean[] ok = {false};
-        javax.swing.SwingUtilities.invokeAndWait(() ->
-                ok[0] = bulkPanel.updateFindingByNum(row, severity, conf));
-        if (!ok[0])
-            throw new IllegalArgumentException(
-                    "Row " + row + " not found (table currently has "
-                    + bulkPanel.getFindings().size() + " row(s)).");
+        final int[] n = {0};
+        javax.swing.SwingUtilities.invokeAndWait(() -> n[0] = bulkPanel.updateFindingsById(id, severity, conf));
+        if (n[0] == 0)
+            throw new IllegalArgumentException("No finding with id " + id + " in the current results.");
 
-        return String.format("Row %d updated — severity: %s%s",
-                row, severity, conf != null ? "  confidence: " + conf : "");
+        return String.format("%s updated (%d row%s) — severity: %s%s", id, n[0], n[0] == 1 ? "" : "s",
+                severity, conf != null ? "  confidence: " + conf : "");
     }
 
     private String toolDeleteFinding(JsonObject args) throws Exception {
         boolean confirmed = args.has("confirmed") && args.get("confirmed").getAsBoolean();
 
-        // Collect row numbers (single int or array)
-        List<Integer> rows = new ArrayList<>();
-        if (args.has("rows") && args.get("rows").isJsonArray()) {
-            for (JsonElement e : args.getAsJsonArray("rows")) rows.add(e.getAsInt());
-        } else if (args.has("row")) {
-            rows.add(args.get("row").getAsInt());
+        // Collect issue IDs / occurrence refs (single or array)
+        List<String> ids = new ArrayList<>();
+        if (args.has("ids") && args.get("ids").isJsonArray()) {
+            for (JsonElement e : args.getAsJsonArray("ids")) ids.add(e.getAsString());
+        } else if (args.has("id")) {
+            ids.add(args.get("id").getAsString());
         } else {
-            throw new IllegalArgumentException("'row' or 'rows' is required");
+            throw new IllegalArgumentException("'id' or 'ids' is required (issue IDs or occurrence refs from get_findings)");
         }
 
         if (!confirmed) {
-            return "Will delete " + rows.size() + " finding(s): rows " + rows
-                    + ". Call again with confirmed=true to proceed.";
+            // Preview: say exactly which findings would go, not just how many
+            List<String> lines = new ArrayList<>();
+            for (String id : ids) {
+                final List<SecretFinding>[] found = new List[]{List.of()};
+                javax.swing.SwingUtilities.invokeAndWait(() -> found[0] = bulkPanel.findingsById(id));
+                if (found[0].isEmpty()) lines.add(id + ": not found");
+                for (SecretFinding f : found[0])
+                    lines.add(f.occurrenceRef() + ": " + f.ruleName() + " / " + f.keyName() + " @ " + f.sourceUrl());
+            }
+            return "Will delete:\n" + String.join("\n", lines)
+                    + "\nCall again with confirmed=true to proceed.";
         }
 
-        // Perform deletions from highest row# to lowest to avoid index shifting
-        List<Integer> sorted = new ArrayList<>(rows);
-        sorted.sort(Collections.reverseOrder());
         List<String> deleted = new ArrayList<>();
-        for (int rowNum : sorted) {
-            final int rn = rowNum;
-            final String[] desc = {null};
-            javax.swing.SwingUtilities.invokeAndWait(() -> {
-                SecretFinding f = bulkPanel.deleteFindingByNum(rn);
-                if (f != null)
-                    desc[0] = "Row #" + rn + ": " + f.ruleName() + " / " + f.keyName()
-                            + " @ " + f.sourceUrl();
-            });
-            if (desc[0] != null) deleted.add(desc[0]);
-            else deleted.add("Row #" + rowNum + ": not found");
+        for (String id : ids) {
+            final List<SecretFinding>[] gone = new List[]{List.of()};
+            javax.swing.SwingUtilities.invokeAndWait(() -> gone[0] = bulkPanel.deleteFindingsById(id));
+            if (gone[0].isEmpty()) deleted.add(id + ": not found");
+            for (SecretFinding f : gone[0])
+                deleted.add(f.occurrenceRef() + ": " + f.ruleName() + " / " + f.keyName() + " @ " + f.sourceUrl());
         }
-        return "Deleted " + deleted.size() + " finding(s):\n" + String.join("\n", deleted);
+        return "Deleted:\n" + String.join("\n", deleted);
     }
 
     private String toolGetSettings() {
@@ -685,18 +725,19 @@ public class McpBridge {
             o.addProperty("id",      i + 1);
             o.addProperty("rule",    f.ruleId() != null ? f.ruleId() : f.ruleName());
             o.addProperty("key",     f.keyName() != null ? f.keyName() : "");
-            String val = f.matchedValue() != null ? f.matchedValue() : "";
-            o.addProperty("value",   val.length() > 60 ? val.substring(0, 57) + "..." : val);
-            String ctx = f.context() != null ? f.context().replace("\n", " ").strip() : "";
-            if (!ctx.isEmpty()) o.addProperty("context", ctx.length() > 100 ? ctx.substring(0, 97) + "..." : ctx);
-            o.addProperty("url",     f.sourceUrl() != null ? f.sourceUrl() : "");
+            o.addProperty("value",   AiTriageProvider.describeValue(f.matchedValue()));
+            String ctx = AiTriageProvider.safeContext(f);
+            if (!ctx.isEmpty()) o.addProperty("context", ctx);
+            o.addProperty("url",     AiTriageProvider.urlWithoutQuery(f.sourceUrl()));
             o.addProperty("severity",   f.severity());
             o.addProperty("confidence", f.confidence());
             arr.add(o);
         }
         return "Triage " + findings.size() + " findings. For each, set real=true/false, severity, confidence, reasoning.\n" +
-               "Then call secretsifter_submit_triage_results with a 'results' JSON array.\n\n" +
-               "FINDINGS:\n" + GSON.toJson(arr);
+               AiTriageProvider.RULES + AiTriageProvider.DATA_NOTICE +
+               "Then call secretsifter_submit_triage_results with a 'results' JSON array containing exactly one " +
+               "object per finding, ids 1.." + findings.size() + ".\n\n" +
+               "<<<FINDINGS\n" + GSON.toJson(arr) + "\nFINDINGS>>>";
     }
 
     private String toolSubmitTriageResults(JsonObject args) {
@@ -706,21 +747,15 @@ public class McpBridge {
         if (!args.has("results"))
             throw new IllegalArgumentException("'results' array is required");
         JsonArray arr = args.getAsJsonArray("results");
-        Map<Integer, AiTriageProvider.TriageResult> byId = new LinkedHashMap<>();
-        for (JsonElement el : arr) {
-            JsonObject o   = el.getAsJsonObject();
-            int id         = o.has("id")         ? o.get("id").getAsInt()         : 0;
-            boolean real   = !o.has("real")      || o.get("real").getAsBoolean();
-            String sev     = o.has("severity")   ? o.get("severity").getAsString()   : "MEDIUM";
-            String conf    = o.has("confidence") ? o.get("confidence").getAsString() : "FIRM";
-            String reason  = o.has("reasoning")  ? o.get("reasoning").getAsString()  : "";
-            byId.put(id, new AiTriageProvider.TriageResult(real,
-                    AiTriageProvider.normalSev(sev), AiTriageProvider.normalConf(conf), reason));
+        int count = pendingTriageFindings != null ? pendingTriageFindings.size() : arr.size();
+        // Same rule as the API providers: ids must be exactly 1..count, each once; otherwise no
+        // finding is changed (a renumbered answer would apply verdicts to the wrong findings).
+        List<AiTriageProvider.TriageResult> results = AiTriageProvider.parseBatchJson(arr.toString(), count);
+        long usable = results.stream().filter(AiTriageProvider.TriageResult::hasVerdict).count();
+        if (usable == 0 && count > 0) {
+            return "Results not accepted: provide exactly one object per finding with ids 1.." + count
+                    + " and fields real (true/false) and severity. Nothing was changed; the request is still pending.";
         }
-        int count = pendingTriageFindings != null ? pendingTriageFindings.size() : byId.size();
-        List<AiTriageProvider.TriageResult> results = new ArrayList<>();
-        for (int i = 1; i <= count; i++)
-            results.add(byId.getOrDefault(i, new AiTriageProvider.TriageResult(true, "MEDIUM", "FIRM", "No response")));
         pendingTriageFindings = null;
         pendingTriageFuture   = null;
         future.complete(results);
@@ -734,9 +769,12 @@ public class McpBridge {
 
     private void writeCsv(List<SecretFinding> findings, Path dest) throws IOException {
         StringBuilder sb = new StringBuilder();
-        sb.append("Rule ID,Rule Name,Key,Value,Severity,Confidence,URL,Target URL,Line\n");
+        sb.append("Issue ID,Occurrence,Fingerprint,Rule ID,Rule Name,Key,Value,Severity,Confidence,URL,Target URL,Line\n");
         for (SecretFinding f : findings) {
-            sb.append(csvEsc(f.ruleId())).append(',')
+            sb.append(f.issueId()).append(',')
+              .append(f.occurrenceRef()).append(',')
+              .append(f.fingerprint()).append(',')
+              .append(csvEsc(f.ruleId())).append(',')
               .append(csvEsc(f.ruleName())).append(',')
               .append(csvEsc(f.keyName())).append(',')
               .append(csvEsc(f.matchedValue())).append(',')
@@ -790,14 +828,21 @@ public class McpBridge {
     // HTTP helpers
     // =========================================================================
 
+    /** One header line, at most 8 KB: longer lines end the connection (no unbounded buffering before auth). */
     private String readLine(InputStream in) throws IOException {
         StringBuilder sb = new StringBuilder();
         int b;
         while ((b = in.read()) >= 0) {
             if (b == '\n') break;
             if (b != '\r') sb.append((char) b);
+            if (sb.length() > 8192) throw new IOException("header line too long");
         }
         return sb.toString();
+    }
+
+    private static String maskToken(String t) {
+        if (t == null || t.length() < 8) return "****";
+        return t.substring(0, 4) + "…" + t.substring(t.length() - 4);
     }
 
     private void writeResponse(OutputStream out, int status, String statusText,
@@ -805,7 +850,7 @@ public class McpBridge {
         byte[] b = (body != null) ? body : new byte[0];
         String headers =
                 "HTTP/1.1 " + status + " " + statusText + "\r\n" +
-                "Access-Control-Allow-Origin: *\r\n" +
+
                 "Access-Control-Allow-Methods: POST, OPTIONS\r\n" +
                 "Access-Control-Allow-Headers: Content-Type, Authorization\r\n" +
                 (contentType.isEmpty() ? "" : "Content-Type: " + contentType + "\r\n") +
@@ -890,28 +935,29 @@ public class McpBridge {
     private JsonObject exportSchema() {
         JsonObject props = new JsonObject();
         addStringProp(props, "format",
-                "Export format: html (default), csv, json, or zip");
+                "Export format: html (default), html-redacted, csv, json, sarif, or zip");
         return buildSchema(props, List.of());
     }
 
     private JsonObject updateSeveritySchema() {
         JsonObject props = new JsonObject();
-        addIntProp   (props, "row",        "1-based row number from the # column in the findings table");
+        addStringProp(props, "id",         "Issue ID (SS-102426-7K4M2Q: all sightings of that secret) or occurrence ref "
+                                          + "(SS-102426-7K4M2Q@4f9a1c: one sighting), from get_findings");
         addStringProp(props, "severity",   "New severity: CRITICAL, HIGH, MEDIUM, LOW, or INFORMATION");
         addStringProp(props, "confidence", "Optional: new confidence to set (CERTAIN, FIRM, TENTATIVE)");
-        return buildSchema(props, List.of("row", "severity"));
+        return buildSchema(props, List.of("id", "severity"));
     }
 
     private JsonObject deleteFindingSchema() {
         JsonObject props = new JsonObject();
-        addIntProp  (props, "row",       "Single row # to delete (use 'rows' for multiple)");
-        JsonObject rowsP = new JsonObject();
-        rowsP.addProperty("type", "array");
-        rowsP.addProperty("description", "Array of row # values to delete");
-        JsonObject items = new JsonObject(); items.addProperty("type", "integer");
-        rowsP.add("items", items);
-        props.add("rows", rowsP);
-        addBoolProp (props, "confirmed", "Must be true to execute deletion; omit for a preview");
+        addStringProp(props, "id", "Issue ID or occurrence ref to delete (use 'ids' for several)");
+        JsonObject idsP = new JsonObject();
+        idsP.addProperty("type", "array");
+        idsP.addProperty("description", "Array of issue IDs and/or occurrence refs to delete");
+        JsonObject items = new JsonObject(); items.addProperty("type", "string");
+        idsP.add("items", items);
+        props.add("ids", idsP);
+        addBoolProp (props, "confirmed", "Must be true to execute deletion; omit for a preview listing each finding");
         return buildSchema(props, List.of());
     }
 
@@ -1030,7 +1076,8 @@ public class McpBridge {
 
     private static String csvEsc(String s) {
         if (s == null) return "";
-        if (s.contains(",") || s.contains("\"") || s.contains("\n"))
+        s = BulkScanPanel.neutralizeFormula(s);
+        if (s.contains(",") || s.contains("\"") || s.contains("\n") || s.contains("\r"))
             return "\"" + s.replace("\"", "\"\"") + "\"";
         return s;
     }

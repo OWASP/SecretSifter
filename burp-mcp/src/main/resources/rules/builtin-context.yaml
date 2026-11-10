@@ -1,0 +1,3487 @@
+# SecretSifter built-in rules. Context-gated rules: a keyword must appear near the value.
+# Order is significant: rules are evaluated in file order.
+# Schema: see com.secretscanner.rules.RuleLoader.
+version: 1
+rules:
+  # AWS Secret Access Key — 40-char base62 after aws_secret keyword
+  - id: 'AWS_KEY_002'
+    name: 'AWS Secret Access Key'
+    key: 'aws_secret_access_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)aws[_\-]?secret[_\-]?(?:access[_\-]?)?key[^"''<>\n]{0,30}["\'']?\s*[=:]\s*["'']?([A-Za-z0-9+/]{40})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'AWS'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Azure DevOps PAT — base64 near azure devops / dev.azure.com / vsts
+  # Microsoft changed PAT length in 2023: old format = 52 chars, new format = 84 chars.
+  # {52,84} covers both generations. Base64 alphabet + padding = [A-Za-z0-9+/=].
+  - id: 'AZURE_DEVOPS_KEY_001'
+    name: 'Azure DevOps Personal Access Token'
+    key: 'azure_devops_pat'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:azure[_\-]?devops|dev\.azure\.com|vsts)[^"''<>\n]{0,60}["\'']?\s*[=:]\s*["'']?([A-Za-z0-9+/=]{52,84})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Azure'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Snowflake credential — password/token near snowflake keyword
+  - id: 'SNOWFLAKE_KEY_001'
+    name: 'Snowflake Credential'
+    key: 'snowflake_credential'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)snowflake[_\-]?(?:password|token|private[_\-]?key)[^"''<>\n]{0,30}["\'']?\s*[=:]\s*["'']?([A-Za-z0-9+/=_\-]{20,})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Snowflake'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Jira API token — 24-char base64 near jira/atlassian keyword
+  - id: 'JIRA_KEY_001'
+    name: 'Jira API Token'
+    key: 'jira_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:jira[^"''<>\n]{0,40}(?:api[_\-]?token|password)|atlassian\.net[^"''<>\n]{0,60}(?:api[_\-]?token|password))[^"''<>\n]{0,30}["\'']?\s*[=:]\s*["'']?([A-Za-z0-9+/=]{24})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Atlassian Jira'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'OKTA_KEY_002'
+    name: 'Okta API Token'
+    key: 'okta_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?:[Oo]kta|OKTA)[\w.\-]{0,20}["'']?\s*[:=]\s*["'']?(00[A-Za-z0-9_=\-]{40})(?![A-Za-z0-9_=\-])'
+    group: 1
+    source: betterleaks
+    license: MIT
+    provider: 'Okta'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Salesforce OAuth access token — 00D orgId + ! separator + token body
+  - id: 'SALESFORCE_KEY_001'
+    name: 'Salesforce OAuth Access Token'
+    key: 'salesforce_oauth_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:salesforce|sfdc|instance_url)[^"''<>\n]{0,60}["'']?\s*[=:]\s*["'']?(00D[A-Za-z0-9]{15}![A-Za-z0-9._\-]{20,})["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Salesforce'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # --- SecretSifter parity: Tier B additions ---
+  # Datadog API / App key — 32-40 hex after DD_API_KEY / DD_APP_KEY / datadog keyword
+  - id: 'DATADOG_KEY_001'
+    name: 'Datadog API Key'
+    key: 'datadog_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:DD_API_KEY|DD_APP_KEY|datadog[_\-]?(?:api|app)[_\-]?key)["\'']?\s*[:=]\s*["'']?([a-f0-9]{32,40})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Datadog'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Heroku API key — UUID near heroku / HEROKU_API_KEY keyword
+  - id: 'HEROKU_KEY_001'
+    name: 'Heroku API Key'
+    key: 'heroku_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:heroku[\w.\-]{0,20}["'']?\s*[=:]\s*["'']?|HEROKU_API_KEY["'']?\s*[=:]\s*["'']?)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?![0-9a-f])'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Heroku'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # KNOWN GAP (defect F2): real server-side SDK keys are sdk-<36-char UUID>; this pattern needs 40+ chars after sdk- and never matches them. Fixed in the defect pass.
+  # LaunchDarkly SDK key — sdk- prefix after launchdarkly / LD_SDK_KEY keyword
+  - id: 'LAUNCHDARKLY_KEY_001'
+    name: 'LaunchDarkly SDK Key'
+    key: 'launchdarkly_sdk_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:launchdarkly|LD_SDK_KEY)[^"''<>\n]{0,80}["'']?[=:\s]+["'']?(sdk-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?![0-9a-f])'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'LaunchDarkly'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # MessageBird API key — 25 alnum after messagebird keyword
+  - id: 'MESSAGEBIRD_KEY_001'
+    name: 'MessageBird API Key'
+    key: 'messagebird_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)messagebird[^"''<>\n]{0,60}["\'']?\s*[=:]\s*["'']?([A-Za-z0-9]{25})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'MessageBird'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Splunk HEC token — UUID after splunk / HEC_TOKEN / hec_token keyword
+  - id: 'SPLUNK_KEY_001'
+    name: 'Splunk HEC Token'
+    key: 'splunk_hec_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:splunk|HEC_TOKEN|hec[_\-]?token)[^"''<>\n]{0,60}["\'']?\s*[=:]\s*["'']?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Splunk'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Twilio Auth Token — 32 lowercase hex after twilio...auth_token / authToken keyword
+  - id: 'TWILIO_AUTH_001'
+    name: 'Twilio Auth Token'
+    key: 'twilio_auth_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)twilio[^"''<>\n]{0,30}auth[_\-]?token["'']?\s*[:=]\s*["'']([a-f0-9]{32})["'']'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Twilio'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Webex bot / access token — 85+ chars after webex...token keyword
+  - id: 'WEBEX_KEY_001'
+    name: 'Webex Bot Token'
+    key: 'webex_bot_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:webex|WEBEX)[^"''<>\n]{0,80}(?:access[_\-]?token|bot[_\-]?token)[^"''<>\n]{0,30}["\'']?\s*[=:]\s*["'']?([A-Za-z0-9_\-]{85,})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Cisco Webex'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Azure APIM subscription key — 32-64 alnum after Ocp-Apim-Subscription-Key header
+  - id: 'AZURE_APIM_001'
+    name: 'Azure APIM Subscription Key'
+    key: 'azure_apim_subscription_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:Ocp-?Apim-?Subscription-?Key|ocp[_\-]?apim[_\-]?subscription[_\-]?key|subscription[_\-]?key)["\'']?\s*[:=]\s*["'']?([A-Za-z0-9]{32,64})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Azure'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Azure App Insights instrumentation key (bare UUID) — requires keyword context
+  # (AZURE_APP_INSIGHTS_CONN in AnchoredRules catches the full connection string)
+  - id: 'AZURE_APPINSIGHTS_001'
+    name: 'Azure App Insights Instrumentation Key'
+    key: 'azure_app_insights_ikey'
+    kind: context
+    severity: LOW
+    pattern: '(?i)["'']?(?:instrumentation[_\-]?key|APPINSIGHTS_INSTRUMENTATIONKEY)["'']?\s*[:=]\s*["'']?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Azure'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Azure Shared Access Signature token — sig= or SharedAccessSignature keyword
+  - id: 'AZURE_SAS_001'
+    name: 'Azure Shared Access Signature Token'
+    key: 'azure_sas_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:SharedAccessSignature[=\s]+(?:[^"''\s<>]{0,300}?[?&;]sig=)?|(?<![A-Za-z0-9_])sig=)([A-Za-z0-9%+/=]{30,})'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Azure'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # --- Additional vendor token patterns ---
+  # Algolia application ID + API key pair — 10-char uppercase app ID near algolia keyword
+  - id: 'ALGOLIA_KEY_001'
+    name: 'Algolia Application ID'
+    key: 'algolia_app_id'
+    kind: context
+    severity: LOW
+    pattern: '(?i)algolia[^"''<>\n]{0,80}["'']?[=:\s]+["'']?((?-i:(?=[A-Z0-9]*[A-Z])[A-Z0-9]{10}))(?![A-Za-z0-9])'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Algolia'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Algolia API key — 32 hex after algolia...api_key / ALGOLIA_API_KEY keyword
+  - id: 'ALGOLIA_KEY_002'
+    name: 'Algolia API Key'
+    key: 'algolia_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:algolia[^"''<>\n]{0,60}(?:api[_\-]?key|admin[_\-]?key)|ALGOLIA_API_KEY)["\'']?\s*[:=]\s*["'']?([a-f0-9]{32})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Algolia'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'ALGOLIA_KEY_003'
+    name: 'Algolia Search-Only API Key (public)'
+    key: 'algolia_search_key'
+    kind: context
+    severity: LOW
+    pattern: '(?i)algolia[^"''<>\n]{0,60}search[_\-]?(?:only[_\-]?)?(?:api[_\-]?)?key["'']?\s*[:=]\s*["'']?([a-f0-9]{32})(?![A-Za-z0-9])'
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Algolia'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Cloudflare API token — 40-char base62url after cloudflare / CF_API_TOKEN keyword
+  - id: 'CLOUDFLARE_KEY_001'
+    name: 'Cloudflare API Token'
+    key: 'cloudflare_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:cloudflare[^"''<>\n]{0,60}(?:api[_\-]?token|token)|CF_API_TOKEN)["\'']?\s*[:=]\s*["'']?([A-Za-z0-9_\-]{40})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Cloudflare'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Zendesk API token — 40-char base62 after zendesk / ZENDESK_API_TOKEN keyword
+  - id: 'ZENDESK_KEY_001'
+    name: 'Zendesk API Token'
+    key: 'zendesk_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:zendesk[^"''<>\n]{0,60}(?:api[_\-]?token|token)|ZENDESK_API_TOKEN)["\'']?\s*[:=]\s*["'']?([A-Za-z0-9]{40})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Zendesk'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Zoom JWT app secret / OAuth client secret — 24-char base62 after zoom keyword
+  - id: 'ZOOM_KEY_001'
+    name: 'Zoom API / OAuth Secret'
+    key: 'zoom_secret'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:zoom[^"''<>\n]{0,60}(?:api[_\-]?secret|client[_\-]?secret|jwt[_\-]?secret)|ZOOM_(?:API_SECRET|CLIENT_SECRET))["\'']?\s*[:=]\s*["'']?([A-Za-z0-9]{24,32})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Zoom'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Intercom access token — 64-char base62 after intercom keyword
+  - id: 'INTERCOM_KEY_001'
+    name: 'Intercom Access Token'
+    key: 'intercom_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:intercom[^"''<>\n]{0,60}(?:access[_\-]?token|token)|INTERCOM_ACCESS_TOKEN)["\'']?\s*[:=]\s*["'']?([A-Za-z0-9]{64})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Intercom'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Azure AD / APIM client secret — 20-50 chars alphanumeric + ~._-
+  # Catches aPIMSecretKey, apim_secret_key, azure_client_secret, aadClientSecret etc.
+  # Uses CtxRule (runs on full JS body before size-cap truncation) so it works in large
+  # bundles where scanGenericKV only sees the first 1 MB + last 512 KB.
+  - id: 'AZURE_APIM_002'
+    name: 'Azure AD / APIM Client Secret'
+    key: 'apim_secret_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:apim[_\-]?secret[_\-]?key|apim[_\-]?client[_\-]?secret|azure[_\-]?(?:ad[_\-]?)?client[_\-]?secret|aad[_\-]?client[_\-]?secret|b2c[_\-]?client[_\-]?secret)["\'']?\s*[:=]\s*["'']([A-Za-z0-9~._\-]{20,60})["'']'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Azure'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Azure AD / APIM client ID — UUID format
+  # Catches aPIMclientId, apim_client_id, aadClientId, azure_client_id etc.
+  - id: 'AZURE_APIM_003'
+    name: 'Azure AD / APIM Client ID'
+    key: 'apim_client_id'
+    kind: context
+    severity: LOW
+    pattern: '(?i)(?:apim[_\-]?client[_\-]?id|azure[_\-]?(?:ad[_\-]?)?client[_\-]?id|aad[_\-]?client[_\-]?id|b2c[_\-]?client[_\-]?id)["\'']?\s*[:=]\s*["'']([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})["'']'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Azure'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # GUID/UUID value where key name ends in Token(s) or Secret(s)
+  # e.g. MyAppTokens_Resource, accessToken, refreshToken, clientSecret
+  # Tight suffix match to avoid tokenType, tokenEndpoint, tenantId, resourceId FPs.
+  # ReDoS fix 2026-10-24: lookbehind anchors the key at an identifier start (was quadratic on long identifier runs).
+  - id: 'GUID_TOKEN_001'
+    name: 'GUID / UUID Token or Secret Identifier'
+    key: 'guid_token_resource'
+    kind: context
+    severity: INFORMATION
+    pattern: '(?i)(?<![a-zA-Z0-9_\-])(?<key>["'']?[a-zA-Z0-9_\-]{0,64}(?:tokens?|secrets?)[a-zA-Z0-9_\-]{0,64}["'']?)\s*[:=,]\s*["'']?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 2
+    source: secretsifter
+    license: MIT
+    provider: 'Generic (GUID token)'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # CryptoJS secret key — a base64-encoded passphrase used as the CryptoJS.AES secret.
+  # Distinct from CRYPTOJS_BLOB_001 (which catches AES-encrypted outputs starting with U2FsdGVkX1).
+  # The key name is anchored (cryptoJsSecretKey variants) so FP risk is minimal.
+  - id: 'CRYPTOJS_KEY_001'
+    name: 'CryptoJS Secret Key (base64-encoded passphrase)'
+    key: 'cryptojs_secret_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?<key>["'']?crypto[_\-]?js[_\-]?secret[_\-]?key["'']?)\s*[:=]\s*["'']([A-Za-z0-9+/]{20,}={0,2})["'']'
+    flags: [CASE_INSENSITIVE]
+    group: 2
+    source: secretsifter
+    license: MIT
+    provider: 'Generic (CryptoJS key)'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # CryptoJS call site — catches the key when passed as an inline string literal:
+  # CryptoJS.AES.decrypt(ciphertext, "hardcodedKey")
+  # First argument matched with [^,"'\r\n]{0,300} — handles variable names and simple
+  # expressions; avoids crossing commas inside nested calls.
+  # Value: any non-quote string ≥ 8 chars; isPlaceholder() filters dummy values.
+  - id: 'CRYPTOJS_CALLSITE_001'
+    name: 'CryptoJS Inline Secret Key (at call site)'
+    key: 'cryptojs_call_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)CryptoJS\.(?:AES|DES|TripleDES|Rabbit|RC4)\.(?:encrypt|decrypt)\s*\(\s*(?:"[^"\r\n]{0,4000}+"|''[^''\r\n]{0,4000}+''|[^,"''\r\n]{0,300}+),\s*["''`]([^"''`\r\n]{8,}+)["''`]'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Generic (CryptoJS key)'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # CryptoJS / OpenSSL AES encrypted blob — value starts with U2FsdGVkX1 (base64 of "Salted__")
+  # Catches appKey, apimSubscriptionKey, clientId, appId etc. encrypted with CryptoJS.AES.
+  # Using a CtxRule (runs at LIGHT+) bypasses the hasHighEntropy() /‐slash rejection
+  # that silently drops all standard base64 values containing '/' characters.
+  # ReDoS fix 2026-10-24: lookbehind anchors the key at an identifier start (was quadratic on long identifier runs).
+  - id: 'CRYPTOJS_BLOB_001'
+    name: 'CryptoJS AES Encrypted Blob (client-side encryption)'
+    key: 'cryptojs_encrypted_blob'
+    kind: context
+    severity: HIGH
+    pattern: '(?<![A-Za-z0-9_$])(?<key>["'']?[A-Za-z_$][A-Za-z0-9_$]*["'']?)\s*[:=]\s*["''](U2FsdGVkX1[A-Za-z0-9+/]{20,}={0,2})["'']'
+    group: 2
+    source: secretsifter
+    license: MIT
+    provider: 'Generic (CryptoJS key)'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Azure APIM subscription key stored as encrypted env config variable —
+  # catches apimSubscriptionKey, apimSubscriptionKeyC360, apimSubscriptionKeyProd, etc.
+  # Value is either a CryptoJS blob or a raw alphanumeric APIM subscription key.
+  - id: 'AZURE_APIM_004'
+    name: 'Azure APIM Subscription Key (env config)'
+    key: 'apim_subscription_key_env'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?<key>["'']?apim[_\-]?subscription[_\-]?key[A-Za-z0-9]*["'']?)\s*[:=]\s*["'']([A-Za-z0-9+/=~._\-]{20,512})["'']'
+    flags: [CASE_INSENSITIVE]
+    group: 2
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Azure'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # TITUS PARITY — CI/CD, security tools, infrastructure
+  # Snyk API token — uppercase UUID (8-4-4-4-12) near snyk keyword
+  - id: 'SNYK_KEY_001'
+    name: 'Snyk API Token'
+    key: 'snyk_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)snyk[^"''<>\n]{0,32}(?:secret|private|access|key|token)[^"''<>\n]{0,32}["\'']?[=:\s]+["'']?([A-Z0-9]{8}-(?:[A-Z0-9]{4}-){3}[A-Z0-9]{12})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Snyk'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Auth0 client secret — AUTH0_CLIENT_SECRET keyword + 32-80 char value
+  - id: 'AUTH0_KEY_001'
+    name: 'Auth0 Client Secret'
+    key: 'auth0_client_secret'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)AUTH0_CLIENT_SECRET["\'']?\s*[=:]\s*["'']?([A-Za-z0-9_\-]{32,80})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Auth0'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Jenkins API token or crumb — 32-36 hex near jenkins keyword
+  - id: 'JENKINS_KEY_001'
+    name: 'Jenkins API Token'
+    key: 'jenkins_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)jenkins[^"''<>\n]{0,40}(?:token|api[_\-]?key)[^"''<>\n]{0,20}["'']?[=:\s]+["'']?([0-9a-f]{32,36})(?![0-9a-f])'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Jenkins'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # DroneCI access token — 32-64 hex near drone keyword
+  - id: 'DRONECI_KEY_001'
+    name: 'DroneCI Access Token'
+    key: 'droneci_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)drone[^"''<>\n]{0,32}(?:secret|token|access|key)[^"''<>\n]{0,16}["\'']?[=:\s]+["'']?([a-f0-9]{32,64})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Drone CI'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Travis CI token — 22-char uppercase+dash token near travis keyword
+  - id: 'TRAVISCI_KEY_001'
+    name: 'Travis CI Token'
+    key: 'travisci_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)travis[^"''<>\n]{0,32}(?:secret|private|access|key|token)[^"''<>\n]{0,16}["'']?[=:\s]+["'']?((?=[A-Za-z0-9]*[0-9])[A-Za-z0-9]{22})(?![A-Za-z0-9_\-])'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Travis CI'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Vercel API token — 24 uppercase alphanumeric near vercel keyword
+  - id: 'VERCEL_KEY_001'
+    name: 'Vercel API Token'
+    key: 'vercel_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)vercel[^"''<>\n]{0,32}(?:secret|token|api[_\-]?key|access)[^"''<>\n]{0,16}["'']?[=:\s]+["'']?((?=[A-Za-z0-9]*[0-9])[A-Za-z0-9]{24})(?![A-Za-z0-9])'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Vercel'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Freshdesk API key — alphanumeric near freshdesk keyword
+  - id: 'FRESHDESK_KEY_001'
+    name: 'Freshdesk API Key'
+    key: 'freshdesk_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)freshdesk[^"''<>\n]{0,64}(?:api[_\-]?key|secret|token|key)[^"''<>\n]{0,16}["\'']?[=:\s]+["'']?([A-Za-z0-9]{20,40})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Freshdesk'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Monday.com API token — JWT-style eyJ near monday keyword
+  - id: 'MONDAY_KEY_001'
+    name: 'Monday.com API Token'
+    key: 'monday_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)monday[^"''<>\n]{0,40}(?:secret|token|api[_\-]?key|access)[^"''<>\n]{0,16}["\'']?[=:\s]+["'']?(eyJ[A-Za-z0-9_\-]{10,200}\.eyJ[A-Za-z0-9_\-]{50,1000}\.[A-Za-z0-9_\-]{20,500})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'monday.com'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Coinbase access token — 32 lowercase alnum near coinbase keyword
+  - id: 'COINBASE_KEY_001'
+    name: 'Coinbase Access Token'
+    key: 'coinbase_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)coinbase[^"''<>\n]{0,32}(?:secret|token|access|key)[^"''<>\n]{0,16}["\'']?[=:\s]+["'']?([a-z0-9\-]{32})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Coinbase'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # PayPal OAuth2 client ID — A + 78-99 uppercase near paypal keyword
+  - id: 'PAYPAL_KEY_001'
+    name: 'PayPal OAuth2 Client ID'
+    key: 'paypal_client_id'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)paypal[^"''<>\n]{0,40}(?:client[_\-]?id|client|id|user)[^"''<>\n]{0,16}["'']?[=:\s]+["'']?((?-i:A)(?=[A-Za-z0-9_\-]*[0-9])(?=[A-Za-z0-9_\-]*[A-Z])[A-Za-z0-9_\-]{78,99})(?![A-Za-z0-9_\-])'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'PayPal'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # IBM Cloud API key — 42-44 chars (alphanumeric + _-) near ibm/bx keyword
+  - id: 'IBM_KEY_001'
+    name: 'IBM Cloud API Key'
+    key: 'ibm_cloud_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:ibm(?:cloud)?|bx)[^"''<>\n]{0,40}(?:secret|private|access|key|token)[^"''<>\n]{0,32}["\'']?[=:\s]+["'']?([0-9A-Za-z_\-]{42,44})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'IBM Cloud'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Cohere API key — 40 alphanumeric near cohere keyword
+  - id: 'COHERE_KEY_001'
+    name: 'Cohere API Key'
+    key: 'cohere_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)cohere[^"''<>\n]{0,32}(?:secret|api[_\-]?key|key|token)[^"''<>\n]{0,16}["\'']?[=:\s]+["'']?([A-Za-z0-9]{40})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Cohere'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Mistral AI API key — 32 alphanumeric near mistral keyword
+  - id: 'MISTRAL_KEY_001'
+    name: 'Mistral AI API Key'
+    key: 'mistral_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)mistral[^"''<>\n]{0,32}(?:secret|api[_\-]?key|key|token)[^"''<>\n]{0,16}["\'']?[=:\s]+["'']?([A-Za-z0-9]{32})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Mistral AI'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Spotify access token — 100+ char opaque token near spotify keyword
+  - id: 'SPOTIFY_KEY_001'
+    name: 'Spotify Access Token'
+    key: 'spotify_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)spotify[^"''<>\n]{0,40}(?:token|access|bearer|auth)[^"''<>\n]{0,16}["\'']?[=:\s]+["'']?([A-Za-z0-9_\-]{100,})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Spotify'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # SonarQube user token (older pre-9.x format) — 40 hex near sonar keyword
+  - id: 'SONAR_KEY_002'
+    name: 'SonarQube User Token (hex)'
+    key: 'sonarqube_user_token_hex'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)sonar[^"''<>\n]{0,40}(?:login|token|key)[^"''<>\n]{0,16}["\'']?[=:\s]+["'']?([a-f0-9]{40})(?![A-Za-z0-9])["'']?'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'SonarQube'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # WireGuard private key — base64 key value following PrivateKey = in .conf files
+  - id: 'WIREGUARD_KEY_001'
+    name: 'WireGuard Private Key'
+    key: 'wireguard_private_key'
+    kind: context
+    severity: HIGH
+    pattern: '\bPrivateKey\s*=\s*([A-Za-z0-9+/]{43}=)'
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'WireGuard'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # HashiCorp Vault legacy service token (< v1.10) — s. + 24-128 base62 near vault context
+  - id: 'VAULT_TOKEN_002'
+    name: 'HashiCorp Vault Legacy Service Token'
+    key: 'vault_legacy_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:hashicorp|vault|VAULT_TOKEN|vault[_\-]?(?:token|client|secret|key))[^"''<>\n]{0,20}["'':=\s]{1,5}\b(s\.[A-Za-z0-9_\-]{24,128})\b'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'HashiCorp Vault'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # GCP Service Account JSON blob — unique field present in every GCP SA key file
+  - id: 'GCP_KEY_002'
+    name: 'GCP Service Account Private Key'
+    key: 'gcp_service_account_json'
+    kind: context
+    severity: HIGH
+    pattern: '"type"\s*:\s*"service_account"[^}]{0,3000}?"private_key"\s*:\s*"(-----BEGIN PRIVATE KEY-----[^"]{50,})"'
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Google Cloud'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Kubernetes bootstrap token — {6 alnum}.{16 alnum} format near token/bootstrap
+  - id: 'K8S_KEY_001'
+    name: 'Kubernetes Bootstrap Token'
+    key: 'kubernetes_bootstrap_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?:kubeadm[^\n]{0,80}--token|bootstrap[_\-]?token|--token)["'']?\s*[= :]\s*["'']?([a-z0-9]{6}\.[a-z0-9]{16})\b'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Kubernetes'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # CyberArk AIM (Application Identity Manager) individual config fields.
+  # Each cbk* key is self-anchored so all fields in a CyberArkSetting block are
+  # reported independently:
+  # cbkAppId:  "APAC_ePlacement-BancaDBS_TST_App"  → vault application ID
+  # cbkSafeId: "APAC_ePlacement-BancaDBS_TST"       → safe name (vault path)
+  # cbkKey:    "SIT_GoogleMapKey"                    → object/credential name
+  # The previous single-anchor approach only caught the first field encountered
+  # after the CyberArkSetting keyword; multi-field blocks required separate matches.
+  - id: 'CYBERARK_AIM_001'
+    name: 'CyberArk AIM Application ID (cbkAppId)'
+    key: 'cbkAppId'
+    kind: context
+    severity: MEDIUM
+    pattern: '\bcbkAppId\s*:\s*["'']([^"''\r\n]{4,120})["'']'
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'CyberArk'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'CYBERARK_AIM_003'
+    name: 'CyberArk AIM Safe ID (cbkSafeId)'
+    key: 'cbkSafeId'
+    kind: context
+    severity: MEDIUM
+    pattern: '\bcbkSafeId\s*:\s*["'']([^"''\r\n]{4,120})["'']'
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'CyberArk'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'CYBERARK_AIM_004'
+    name: 'CyberArk AIM Object/Key Name (cbkKey)'
+    key: 'cbkKey'
+    kind: context
+    severity: MEDIUM
+    pattern: '\bcbkKey\s*:\s*["'']([^"''\r\n]{4,120})["'']'
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'CyberArk'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # CyberArk AIM WebService endpoint URL — the URL itself is a HIGH-severity finding:
+  # it confirms an AIM CCP deployment and, combined with the AppID query param,
+  # can be used to query the vault directly if network access allows.
+  # Pattern: AIMWebService/api/Accounts (canonical CCP REST path)
+  - id: 'CYBERARK_AIM_002'
+    name: 'CyberArk AIM WebService Endpoint URL'
+    key: 'cyberark_aim_url'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(https?://[A-Za-z0-9._\-]{4,}/AIMWebService/api/Accounts[^"''\s<>]*)'
+    flags: [CASE_INSENSITIVE]
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'CyberArk'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+
+  # moved from anchored rules: reports the captured value, not the key name
+  - id: 'OAUTH_KEY_001'
+    name: 'OAuth2/OIDC Resource ID Disclosure'
+    key: 'oauth_resource_id'
+    kind: context
+    severity: INFORMATION
+    pattern: '(?i)\b(?:resource|resource[_-]?id)["'']?\s*[:=]\s*[\["'']{1,2}([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})["''\]]'
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Generic (OAuth resource)'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # moved from anchored rules: reports the captured value, not the key name
+  - id: 'CERT_KEY_001'
+    name: 'X.509 Certificate Thumbprint'
+    key: 'cert_thumbprint'
+    kind: context
+    severity: INFORMATION
+    pattern: '(?i)\bthumbprint["'']?\s*[:=]\s*["'']?([0-9A-Fa-f]{40})(?![0-9A-Fa-f])'
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'Generic (certificate thumbprint)'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # moved from anchored rules: reports the captured value, not the key name
+  - id: 'VAULT_KEY_001'
+    name: 'Vault Secret Reference ID'
+    key: 'vault_secret_ref_id'
+    kind: context
+    severity: INFORMATION
+    pattern: '\b[A-Za-z]{0,20}(?:[Ss]ecret|[Pp]assword)(?:[A-Z][A-Za-z]{0,19})?Id["'']?\s*[:=]\s*["'']?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?![0-9a-fA-F])'
+    group: 1
+    source: secretsifter
+    license: MIT
+    provider: 'HashiCorp Vault'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # ===== Vendored from Kingfisher / Betterleaks (Apache-2.0) — 2026-10-25 =====
+  - id: 'KF_ABUSEIPDB_API_KEY_1'
+    name: 'AbuseIPDB API Key'
+    key: 'abuseipdb_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:abuseipdb)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-f0-9]{80})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'AbuseIPDB'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ADOBE_CLIENT_ID'
+    name: 'Adobe Client ID'
+    key: 'adobe_client_id'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:adobe)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-f0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Adobe'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ADOBE_CLIENT_SECRET'
+    name: 'Adobe Client Secret'
+    key: 'adobe_client_secret'
+    kind: context
+    severity: HIGH
+    pattern: '\b(p8e-(?i)[a-z0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Adobe'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_AIKIDO_CI_TOKEN'
+    name: 'Aikido CI Token'
+    key: 'aikido_ci_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(AIK_CI_[A-Za-z0-9]{20,44})\b'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Aikido'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_AIKIDO_CLIENT_ID'
+    name: 'Aikido Client ID'
+    key: 'aikido_client_id'
+    kind: context
+    severity: HIGH
+    pattern: '\b(AIK_CLIENT_[A-Za-z0-9]{24})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Aikido'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_AIKIDO_CLIENT_SECRET'
+    name: 'Aikido Client Secret'
+    key: 'aikido_client_secret'
+    kind: context
+    severity: HIGH
+    pattern: '\b(AIK_SECRET_[A-Za-z0-9]{64})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Aikido'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_AIVEN_AUTH_TOKEN'
+    name: 'Aiven Auth Token'
+    key: 'aiven_auth_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:aiven)[\s\S]{0,32}?\b([A-Za-z0-9/+=]{372})(?:[^A-Za-z0-9/+=]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Aiven'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_AMPLITUDE_SECRET_KEY'
+    name: 'Amplitude Secret Key'
+    key: 'amplitude_secret_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)\bamplitude(?:.|[\n\r]){0,32}?(?:SECRET|PRIVATE|ACCESS|KEY|TOKEN|AUTHORIZATION)(?:.|[\n\r]){0,16}?\b([a-f0-9]{32})\b'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Amplitude'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_APOLLO_API_KEY_1'
+    name: 'Apollo API Key'
+    key: 'apollo_api_key_1'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i:(?:apollo)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9_-]{22})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Apollo'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ARTIFACTORY_API_KEY'
+    name: 'JFrog Artifactory API Key'
+    key: 'artifactory_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '\bAKCp[A-Za-z0-9]{68,70}\b'
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'JFrog Artifactory'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ARTIFACTORY_JFROG_URL'
+    name: 'JFrog Artifactory Jfrog URL'
+    key: 'artifactory_jfrog_url'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:^|[^a-z0-9-])([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.jfrog\.io)(?:$|[^a-z0-9-])'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'JFrog Artifactory'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ARTIFACTORY_REFERENCE_TOKEN'
+    name: 'JFrog Artifactory Reference Token'
+    key: 'artifactory_reference_token'
+    kind: context
+    severity: HIGH
+    pattern: '\bcmVmd[A-Za-z0-9]{59}\b'
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'JFrog Artifactory'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ASAAS_API_TOKEN'
+    name: 'Asaas API Token'
+    key: 'asaas_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?:^|[^A-Za-z0-9_-])(\$aact_(?:prod|hmlg)_[A-Za-z0-9_-]{20,100})(?:[^A-Za-z0-9_-]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Asaas'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ASSEMBLYAI_API_KEY'
+    name: 'AssemblyAI API Key'
+    key: 'assemblyai_api_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:assemblyai)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'AssemblyAI'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_AUTHRESS_SERVICE_CLIENT_ACCESS_KEY'
+    name: 'Authress Service Client Access Key'
+    key: 'authress_service_client_access_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)\b((?:sc|ext|scauth|authress)_[a-z0-9]{5,30}\.[a-z0-9]{4,6}\.acc[_-][a-z0-9-]{10,32}\.[a-z0-9+/_=-]{30,120})\b'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Authress'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_BEAMER_API_TOKEN'
+    name: 'Beamer API Token'
+    key: 'beamer_api_token'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:beamer)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(b_[a-z0-9=_\-]{44})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Beamer'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_BITBUCKET_CLIENT_ID'
+    name: 'Bitbucket Client ID'
+    key: 'bitbucket_client_id'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:bitbucket)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Bitbucket'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_BITBUCKET_CLIENT_SECRET'
+    name: 'Bitbucket Client Secret'
+    key: 'bitbucket_client_secret'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:bitbucket)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9=_\-]{64})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Bitbucket'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_BITBUCKET_DATA_CENTER_TOKEN'
+    name: 'Bitbucket Data Center Token'
+    key: 'bitbucket_data_center_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(BBDC-[A-Za-z0-9+/=]{32,})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Bitbucket'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_BITLY_ACCESS_TOKEN'
+    name: 'Bitly Access Token'
+    key: 'bitly_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)\bbitly(?:.|[\n\r]){0,32}?(?:SECRET|PRIVATE|ACCESS|KEY|TOKEN)(?:.|[\n\r]){0,32}?([a-f0-9]{40})\b'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Bitly'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_BITRISE_ACCESS_TOKEN'
+    name: 'Bitrise Access Token'
+    key: 'bitrise_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:bitrise(?:[ _-]*(?:personal|workspace))?(?:[ _-]*(?:access|api))?[ _-]*token)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9_-]{60,120})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Bitrise'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_BITTREX_ACCESS_KEY'
+    name: 'Bittrex Access Key'
+    key: 'bittrex_access_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:bittrex)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Bittrex'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_BITTREX_SECRET_KEY'
+    name: 'Bittrex Secret Key'
+    key: 'bittrex_secret_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:bittrex)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Bittrex'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_BRAVE_SEARCH_API_KEY'
+    name: 'Brave Search API Key'
+    key: 'brave_search_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b(BSA[A-Za-z0-9_-]{24,40})\b'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Brave Search'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_BROWSERSTACK_ACCESS_KEY_1'
+    name: 'BrowserStack Access Key'
+    key: 'browserstack_access_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:browserstack[_.-]?(?:access[_.-]?)?(?:key|secret|token))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9]{20})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'BrowserStack'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_BROWSERSTACK_USERNAME_1'
+    name: 'BrowserStack Username'
+    key: 'browserstack_username_1'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i:(?:browserstack[_.-]?(?:username|user))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9][A-Za-z0-9._-]{2,39})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'BrowserStack'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CANADIAN_DIGITAL_SERVICE_NOTIFY_API_KEY'
+    name: 'Canadian Digital Service Digital Service Notify API Key'
+    key: 'canadian_digital_service_notify_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:\b(ApiKey-v1\s+gcntfy-[a-z0-9_]+-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Canadian Digital Service'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CANVA_CLIENT_ID'
+    name: 'Canva Client ID'
+    key: 'canva_client_id'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)\b(?:canva|CANVA_CLIENT_ID)(?:.|[\n\r]){0,32}?(?:client[_\s-]*id|app[_\s-]*id)(?:.|[\n\r]){0,16}?\b(OC-[A-Za-z0-9_-]{8,16})\b'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Canva'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CANVA_CLIENT_SECRET'
+    name: 'Canva Client Secret'
+    key: 'canva_client_secret'
+    kind: context
+    severity: HIGH
+    pattern: '\b(cnvca[a-zA-Z0-9_-]{51})\b'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Canva'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CARTESIA_API_KEY_1'
+    name: 'Cartesia API Key'
+    key: 'cartesia_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '\b(sk_car_[A-Za-z0-9_]{20})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Cartesia'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CEREBRAS_API_KEY'
+    name: 'Cerebras API Key'
+    key: 'cerebras_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)\b(csk-[a-z0-9]{48})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Cerebras'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CHECKOUT_SECRET_KEY'
+    name: 'Checkout.com Secret Key'
+    key: 'checkout_secret_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:checkout)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(sk_[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Checkout.com'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CIVO_API_KEY'
+    name: 'Civo API Key'
+    key: 'civo_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:civo)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{50})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Civo'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CLERK_SECRET_KEY'
+    name: 'Clerk Secret Key'
+    key: 'clerk_secret_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:clerk)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(sk_(?:test|live)_[A-Za-z0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Clerk'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CLICKHOUSE_CLOUD_API_SECRET_KEY'
+    name: 'ClickHouse Cloud API Secret Key'
+    key: 'clickhouse_cloud_api_secret_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b(4b1d[A-Za-z0-9]{38})\b'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'ClickHouse'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CLICKHOUSE_CLOUD_KEY_ID'
+    name: 'ClickHouse Cloud Key ID'
+    key: 'clickhouse_cloud_key_id'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)\bclickhouse(?:.|[\n\r]){0,16}?(?:ID|USER)(?:.|[\n\r]){0,16}?([a-z0-9]{20})'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'ClickHouse'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CLICKUP_PERSONAL_API_TOKEN'
+    name: 'ClickUp Personal API Token'
+    key: 'clickup_personal_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:clickup)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(pk_[0-9]{8,9}_[a-z0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'ClickUp'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CLOJARS_API_TOKEN'
+    name: 'Clojars API Token'
+    key: 'clojars_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)CLOJARS_[a-z0-9]{60}'
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Clojars'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CLOUDSMITH_API_KEY'
+    name: 'Cloudsmith API Key'
+    key: 'cloudsmith_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b(csa_[a-f0-9]{30}[A-Za-z0-9]{6})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Cloudsmith'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_COCKROACHLABS_CLOUD_API_KEY'
+    name: 'CockroachDB Cloud API Key'
+    key: 'cockroachlabs_cloud_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b(CCDB1_[A-Za-z0-9]{22}_[A-Za-z0-9]{40})\b'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'CockroachDB'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CODECOV_ACCESS_TOKEN'
+    name: 'Codecov Access Token'
+    key: 'codecov_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:codecov)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Z0-9-]{36})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Codecov'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CONFIGCAT_SDK_KEY'
+    name: 'ConfigCat SDK Key'
+    key: 'configcat_sdk_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:configcat)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9_-]{22}/[A-Za-z0-9_-]{22})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'ConfigCat'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CONFIGCAT_SDK_KEY_EXTENDED'
+    name: 'ConfigCat SDK Key Extended'
+    key: 'configcat_sdk_key_extended'
+    kind: context
+    severity: HIGH
+    pattern: '\b(configcat-sdk-1/[A-Za-z0-9_-]{22}/[A-Za-z0-9_-]{22})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'ConfigCat'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CONFLUENT_ACCESS_TOKEN'
+    name: 'Confluent Access Token'
+    key: 'confluent_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:confluent)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{16})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Confluent'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CONFLUENT_SECRET_KEY'
+    name: 'Confluent Secret Key'
+    key: 'confluent_secret_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:confluent)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{64})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Confluent'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_COUCHBASE_CAPELLA_API_KEY'
+    name: 'Couchbase Capella API Key'
+    key: 'couchbase_capella_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)\b(?:couchbase|capella)(?:.|[\n\r]){0,32}?(?:api(?:.|[\n\r]){0,12}?(?:key|secret)|key(?:.|[\n\r]){0,12}?secret)(?:.|[\n\r]){0,32}?\b([A-Za-z0-9+/]{60,120}={0,2})\b'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Couchbase'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_COVERALLS_PERSONAL_API_TOKEN'
+    name: 'Coveralls Personal API Token'
+    key: 'coveralls_personal_api_token'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:coveralls)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9-]{37})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Coveralls'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CRATES_IO_API_KEY'
+    name: 'Crates.io Io API Key'
+    key: 'crates_io_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:crates(?:[_.-]?io)?)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(cio[A-Za-z0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Crates.io'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_CURSOR_API_KEY'
+    name: 'Cursor API Key'
+    key: 'cursor_api_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:cursor)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(key_[0-9a-f]{64})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Cursor'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_DATABENTO_API_KEY'
+    name: 'Databento API Key'
+    key: 'databento_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:databento)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(db-[A-Za-z0-9]{29})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Databento'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_DATAGOV_API_KEY'
+    name: 'Data.gov API Key'
+    key: 'datagov_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:data\.gov)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{40})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Data.gov'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_DATASTAX_ASTRA_APPLICATION_TOKEN'
+    name: 'DataStax Astra Application Token'
+    key: 'datastax_astra_application_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(AstraCS:[A-Za-z0-9]{20,})'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'DataStax Astra'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_DEEPGRAM_API_KEY'
+    name: 'Deepgram API Key'
+    key: 'deepgram_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:deepgram)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-f0-9]{40})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Deepgram'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_DEFINED_NETWORKING_API_TOKEN'
+    name: 'Defined Networking API Token'
+    key: 'defined_networking_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:dnkey)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(dnkey-[a-z0-9=_\-]{26}-[a-z0-9=_\-]{52})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Defined Networking'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_DENO_ACCOUNT_TOKEN'
+    name: 'Deno Deploy Account Token'
+    key: 'deno_account_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(ddp_[A-Za-z0-9]{36})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Deno Deploy'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_DEVCYCLE_CLIENT_SDK_KEY'
+    name: 'DevCycle Client SDK Key'
+    key: 'devcycle_client_sdk_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b(dvc_client_[A-Za-z0-9]{8,32})'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'DevCycle'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_DEVCYCLE_MOBILE_SDK_KEY'
+    name: 'DevCycle Mobile SDK Key'
+    key: 'devcycle_mobile_sdk_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b(dvc_mobile_[A-Za-z0-9]{8,32})'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'DevCycle'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_DEVCYCLE_SERVER_SDK_KEY'
+    name: 'DevCycle Server SDK Key'
+    key: 'devcycle_server_sdk_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b(dvc_server_[A-Za-z0-9]{8,32})'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'DevCycle'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_DEVIN_PERSONAL_API_KEY'
+    name: 'Devin Personal API Key'
+    key: 'devin_personal_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b(apk_user_[A-Za-z0-9+/]{120,180}={0,2})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Devin'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_DEVIN_SERVICE_API_KEY'
+    name: 'Devin Service API Key'
+    key: 'devin_service_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b(apk_[A-Za-z0-9+/]{80,100}={0,2})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Devin'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_DEVIN_SERVICE_USER_TOKEN'
+    name: 'Devin Service User Token'
+    key: 'devin_service_user_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(cog_[a-z2-7]{52})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Devin'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_DISQUS_API_KEY'
+    name: 'Disqus API Key'
+    key: 'disqus_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:disqus)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{64})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Disqus'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_EBAY_CLIENT_ID'
+    name: 'eBay Client ID'
+    key: 'ebay_client_id'
+    kind: context
+    severity: HIGH
+    pattern: '\b([a-zA-Z0-9_]++-[a-zA-Z0-9_]++-PRD-[a-f0-9]{8,12}+-[a-f0-9]{8,12}+)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'eBay'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_EBAY_CLIENT_SECRET'
+    name: 'eBay Client Secret'
+    key: 'ebay_client_secret'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:ebay(?:[_. -]*(?:client|api))?[_. -]*(?:secret|key))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(PRD-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4,12})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'eBay'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ELEVENLABS_API_KEY'
+    name: 'ElevenLabs API Key'
+    key: 'elevenlabs_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:elevenlabs)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(sk_[0-9a-f]{48})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'ElevenLabs'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ENDORLABS_API_KEY'
+    name: 'Endor Labs API Key'
+    key: 'endorlabs_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:endor(?:labs)?|key)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(endr\+[A-Za-z0-9-]{16})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Endor Labs'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ENDORLABS_API_SECRET'
+    name: 'Endor Labs API Secret'
+    key: 'endorlabs_api_secret'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:endor(?:labs)?|secret)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(endr\+[A-Za-z0-9-]{16})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Endor Labs'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ETSY_OPEN_API_KEY'
+    name: 'Etsy Open API Key'
+    key: 'etsy_open_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:etsy|x-api-key)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{24}:[a-z0-9]{10,64})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Etsy'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_EXOSCALE_API_KEY'
+    name: 'Exoscale API Key'
+    key: 'exoscale_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b(EXO[a-zA-Z0-9]{24,30})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Exoscale'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_EXOSCALE_API_SECRET'
+    name: 'Exoscale API Secret'
+    key: 'exoscale_api_secret'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:exoscale)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9_\-]{40,60})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Exoscale'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_FAL_API_KEY_1'
+    name: 'Fal.ai API Key'
+    key: 'fal_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:falai|fal_ai|fal-ai|fal.ai|fal-api|fal_api|fal_key|fal-key)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}:[a-f0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Fal.ai'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_FASTLY_API_TOKEN'
+    name: 'Fastly API Token'
+    key: 'fastly_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:fastly)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9_-]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Fastly'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_FINICITY_API_TOKEN'
+    name: 'Finicity API Token'
+    key: 'finicity_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:finicity)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-f0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Finicity'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_FINICITY_CLIENT_SECRET'
+    name: 'Finicity Client Secret'
+    key: 'finicity_client_secret'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:finicity)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{20})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Finicity'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_FINNHUB_ACCESS_TOKEN'
+    name: 'Finnhub Access Token'
+    key: 'finnhub_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:finnhub)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{20})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Finnhub'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_FLICKR_ACCESS_TOKEN'
+    name: 'Flickr Access Token'
+    key: 'flickr_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:flickr)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Flickr'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_FREEMIUS_SECRET_KEY'
+    name: 'Freemius Secret Key'
+    key: 'freemius_secret_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)["'']secret_key["'']\s*=>\s*["''](sk_[\S]{29})["'']'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Freemius'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_FRESHBOOKS_ACCESS_TOKEN'
+    name: 'FreshBooks Access Token'
+    key: 'freshbooks_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:freshbooks)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{64})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'FreshBooks'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_FULLSTORY_API_KEY'
+    name: 'FullStory API Key'
+    key: 'fullstory_api_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:(?:fullstory|fs_api|fullstory_api))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+((?:na1|eu1)\.[A-Za-z0-9]{20,})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'FullStory'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_GITEA_ACCESS_TOKEN'
+    name: 'Gitea Access Token'
+    key: 'gitea_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:gitea[_.-]?(?:token|key|secret|access))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-f0-9]{40})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Gitea'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_GITTER_ACCESS_TOKEN'
+    name: 'Gitter Access Token'
+    key: 'gitter_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:gitter)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9_-]{40})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Gitter'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_GOCARDLESS_API_TOKEN'
+    name: 'GoCardless API Token'
+    key: 'gocardless_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:gocardless)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(live_(?i)[a-z0-9\-_=]{40})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'GoCardless'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_GREPTILE_API_KEY'
+    name: 'Greptile API Key'
+    key: 'greptile_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:greptile)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-zA-Z0-9+/]{48})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Greptile'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_GUMROAD_ACCESS_TOKEN'
+    name: 'Gumroad Access Token'
+    key: 'gumroad_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:gumroad)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+((?:[a-f0-9]{64}|[A-Za-z0-9-]{43}))(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Gumroad'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_HIGHNOTE_SECRET_LIVE_KEY'
+    name: 'Highnote Secret Live Key'
+    key: 'highnote_secret_live_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:highnote(?:[_. -]*(?:api))?[_. -]*(?:secret|key|token|sk[_. -]*live))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(sk_live_a2V5Xz[A-Za-z0-9+/]{69}={0,2})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Highnote'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_HONEYCOMB_API_KEY'
+    name: 'Honeycomb API Key'
+    key: 'honeycomb_api_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:honeycomb)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+((?:[a-f0-9]{32}|[a-z0-9]{22}))(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Honeycomb'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_HUNTER_API_KEY_1'
+    name: 'Hunter.io API Key'
+    key: 'hunter_api_key_1'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i:(?:hunter)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-f0-9]{40})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Hunter.io'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_INFLUXDB_API_TOKEN'
+    name: 'InfluxDB API Token'
+    key: 'influxdb_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:\binflux(?:db)?\b(?:.|[\n\r]){0,64}?\b(?:token|api[_-]?key)\b(?:.|[\n\r]){0,32}?)[=:"''\s]{1,8}([A-Za-z0-9+/=_-]{88,})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'InfluxDB'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_INFOMANIAK_API_TOKEN'
+    name: 'Infomaniak API Token'
+    key: 'infomaniak_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:infomaniak)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9_\-]{60,100})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Infomaniak'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_INFRACOST_API_TOKEN'
+    name: 'Infracost API Token'
+    key: 'infracost_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(ico-[a-zA-Z0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Infracost'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_INSTANTLY_API_KEY_1'
+    name: 'Instantly API Key'
+    key: 'instantly_api_key_1'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i:(?:instantly)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9+/]{66}==)(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Instantly'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_INTRA42_CLIENT_SECRET'
+    name: 'Intra 42 Client Secret'
+    key: 'intra42_client_secret'
+    kind: context
+    severity: HIGH
+    pattern: '\b(s-s4t2(?:ud|af)-(?i)[abcdef0123456789]{64})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Intra 42'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_IONIC_PERSONAL_ACCESS_TOKEN'
+    name: 'Ionic Personal Access Token'
+    key: 'ionic_personal_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(ion_[A-Za-z0-9]{42})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Ionic'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_JUMPCLOUD_API_KEY'
+    name: 'JumpCloud API Key'
+    key: 'jumpcloud_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:jumpcloud)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{40})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'JumpCloud'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_KAGI_API_KEY'
+    name: 'Kagi API Key'
+    key: 'kagi_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:kagi)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9_-]{11}\.[a-z0-9_-]{43})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Kagi'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_KIMI_API_KEY'
+    name: 'Moonshot Kimi API Key'
+    key: 'kimi_api_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?:(?:\A|(?:[\x00-,\./:-@\[-\^`\{-\xFF]))((?:(?:[Ss])(?:[Kk])\-(?:[\-0-9A-Z_a-z]){48}))(?:(?:\\?(?:["''`]))|(?:[\x09-\x0D\x20;])|(?:\\(?:[NRnr]))|\z))'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Moonshot Kimi'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_KRAKEN_ACCESS_TOKEN'
+    name: 'Kraken Access Token'
+    key: 'kraken_access_token'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:kraken)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9\/=_\+\-]{80,90})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Kraken'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_KUCOIN_ACCESS_TOKEN'
+    name: 'KuCoin Access Token'
+    key: 'kucoin_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:kucoin)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-f0-9]{24})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'KuCoin'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_KUCOIN_SECRET_KEY'
+    name: 'KuCoin Secret Key'
+    key: 'kucoin_secret_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:kucoin)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'KuCoin'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_LANGCHAIN_LANGSMITH_PERSONAL_ACCESS_TOKEN'
+    name: 'Langchain Langsmith Personal Access Token'
+    key: 'langchain_langsmith_personal_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(lsv2_pt_[0-9a-fA-F]{32}_[0-9a-fA-F]{10})'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Langchain'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_LANGCHAIN_LANGSMITH_SERVICE_KEY'
+    name: 'Langchain Langsmith Service Key'
+    key: 'langchain_langsmith_service_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b(lsv2_sk_[0-9a-fA-F]{32}_[0-9a-fA-F]{10})'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Langchain'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_LARK_APP_ID'
+    name: 'Lark App ID'
+    key: 'lark_app_id'
+    kind: context
+    severity: HIGH
+    pattern: '\b(cli_[A-Za-z0-9]{16})'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Lark'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_LARK_APP_SECRET'
+    name: 'Lark App Secret'
+    key: 'lark_app_secret'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:lark|larksuite)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Lark'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_LICHESS_PERSONAL_ACCESS_TOKEN'
+    name: 'Lichess Personal Access Token'
+    key: 'lichess_personal_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(lip_[A-Za-z0-9_]{16,60})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Lichess'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_LIGHTON_PARADIGM_API_KEY'
+    name: 'LightOn Paradigm API Key'
+    key: 'lighton_paradigm_api_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:lighton|paradigm)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9_\-]{40,80})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'LightOn'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_LINKEDIN_CLIENT_ID'
+    name: 'LinkedIn Client ID'
+    key: 'linkedin_client_id'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:linked[_-]?in)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{14})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'LinkedIn'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_LINKEDIN_CLIENT_SECRET'
+    name: 'LinkedIn Client Secret'
+    key: 'linkedin_client_secret'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:linked[_-]?in)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{16})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'LinkedIn'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_LLAMA_CLOUD_API_KEY_1'
+    name: 'Llama Cloud API Key'
+    key: 'llama_cloud_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '\b(llx-[A-Za-z0-9]{44,52})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Llama'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_LOB_API_KEY'
+    name: 'Lob API Key'
+    key: 'lob_api_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:lob)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+((live|test)_[a-f0-9]{35})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Lob'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_LOB_PUB_API_KEY'
+    name: 'Lob Pub API Key'
+    key: 'lob_pub_api_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:lob)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+((test|live)_pub_[a-f0-9]{31})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Lob'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_LOOKER_CLIENT_ID'
+    name: 'Looker Client ID'
+    key: 'looker_client_id'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:looker)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{20})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Looker'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_LOOKER_CLIENT_SECRET'
+    name: 'Looker Client Secret'
+    key: 'looker_client_secret'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:looker)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{24})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Looker'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_MATTERMOST_ACCESS_TOKEN'
+    name: 'Mattermost Access Token'
+    key: 'mattermost_access_token'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:mattermost)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{26})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Mattermost'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_MAXMIND_LICENSE_KEY'
+    name: 'MaxMind License Key'
+    key: 'maxmind_license_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b([A-Za-z0-9]{6}_[A-Za-z0-9]{29}_mmk)(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'MaxMind'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_MEM0_API_KEY_1'
+    name: 'Mem0 API Key'
+    key: 'mem0_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:mem0)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(m0-[A-Za-z0-9]{24,44})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Mem0'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_MERCURY_PRODUCTION_API_TOKEN'
+    name: 'Mercury Production API Token'
+    key: 'mercury_production_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(mercury_production_[a-z]{3,6}_[A-Za-z0-9]{40,50}_yrucrem)(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Mercury'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_MERGIFY_APPLICATION_KEY'
+    name: 'Mergify Application Key'
+    key: 'mergify_application_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b(mergify_application_key_[A-Za-z0-9_-]{40,200})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Mergify'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_MIDTRANS_PRODUCTION_SERVER_CLIENT_KEY'
+    name: 'Midtrans Production Server Client Key'
+    key: 'midtrans_production_server_client_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:midtrans|mid[_-]?)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(Mid-(?:server|client)-[A-Za-z0-9_]{10,20})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Midtrans'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_MINIMAX_API_KEY'
+    name: 'MiniMax API Key'
+    key: 'minimax_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)\b(sk-api-[A-Za-z0-9_-]{119})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'MiniMax'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_MIRO_ACCESS_TOKEN'
+    name: 'Miro Access Token'
+    key: 'miro_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(eyJtaXJv[A-Za-z0-9-]{10,64}_[A-Za-z0-9_-]{20,64})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Miro'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_MIRO_CLIENT_ID'
+    name: 'Miro Client ID'
+    key: 'miro_client_id'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:miro[_. -]*client[_. -]*id)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([0-9]{15,21})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Miro'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_MIRO_CLIENT_SECRET'
+    name: 'Miro Client Secret'
+    key: 'miro_client_secret'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:miro)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Miro'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_MONGODB_ATLAS_SERVICE_ACCOUNT_ID'
+    name: 'MongoDB Atlas Service Account ID'
+    key: 'mongodb_atlas_service_account_id'
+    kind: context
+    severity: HIGH
+    pattern: '\b(mdb_sa_id_[a-f0-9]{24})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'MongoDB'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_MONGODB_ATLAS_SERVICE_ACCOUNT_SECRET'
+    name: 'MongoDB Atlas Service Account Secret'
+    key: 'mongodb_atlas_service_account_secret'
+    kind: context
+    severity: HIGH
+    pattern: '\b(mdb_sa_sk_[A-Za-z0-9_-]{40})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'MongoDB'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_MONGODB_CONNECTION_STRING'
+    name: 'MongoDB Connection String'
+    key: 'mongodb_connection_string'
+    kind: context
+    severity: HIGH
+    pattern: '\b(mongodb(?:\+srv)?://(?<username>[!-9;-~]{3,50}):(?<password>[!-?A-~]{3,88})@(?<host>(?:[a-zA-Z0-9][\w.-]+|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?::\d{1,5})?(?:,(?:[a-zA-Z0-9][\w.-]+|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?::\d{1,5})?)*)/?(?:(?<authdb>[\w-]+)?(?<options>\?\w+=[\w@/.$-]+(?:&(?:amp;)?\w+=[\w@/.$-]+)*)?)?)(?:[''"\s;\x60]|\\[nr]|\b|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'MongoDB'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_MUX_ACCESS_TOKEN_ID_1'
+    name: 'Mux Access Token ID'
+    key: 'mux_access_token_id_1'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:mux[_.-]?(?:access[_.-]?)?token[_.-]?(?:id|identifier))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Mux'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_MUX_ACCESS_TOKEN_SECRET_1'
+    name: 'Mux Access Token Secret'
+    key: 'mux_access_token_secret_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:mux[_.-]?(?:access[_.-]?)?token[_.-]?(?:secret|private|key))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9+/]{75})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Mux'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_NGROK_API_KEY_1'
+    name: 'ngrok API Key'
+    key: 'ngrok_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:ngrok[_. -]*(?:(?:api|agent)[_. -]*)?(?:secret|key|token|authtoken))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(2[A-Za-z0-9]{26}_[0-9][A-Za-z0-9]{20})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'ngrok'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_NUGET_CONFIG_PASSWORD'
+    name: 'NuGet Config Password'
+    key: 'nuget_config_password'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)<add key=\"(?:(?:ClearText)?Password)\"\s*value=\"(.{8,})\"\s*/>'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'NuGet'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_NYLAS_API_KEY_1'
+    name: 'Nylas API Key'
+    key: 'nylas_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '\b(nyk_[A-Za-z0-9]{67})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Nylas'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_NYTIMES_ACCESS_TOKEN'
+    name: 'New York Times Access Token'
+    key: 'nytimes_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:nytimes|new-york-times|newyorktimes)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9=_\-]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'New York Times'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_OCTOPUS_DEPLOY_API_KEY'
+    name: 'Octopus Deploy API Key'
+    key: 'octopus_deploy_api_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '\b(API-[A-Z0-9]{26})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Octopus Deploy'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_OLLAMA_API_KEY'
+    name: 'Ollama API Key'
+    key: 'ollama_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:ollama)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-f0-9]{32}\.[a-zA-Z0-9_-]{24})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Ollama'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ONESIGNAL_RICH_AUTHENTICATION_TOKEN'
+    name: 'OneSignal Rich Authentication Token'
+    key: 'onesignal_rich_authentication_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(os_v2_(?:app|org)_[a-z2-7]{103})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'OneSignal'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ONFIDO_LIVE_API_TOKEN_CA'
+    name: 'Onfido Live API Token Ca'
+    key: 'onfido_live_api_token_ca'
+    kind: context
+    severity: HIGH
+    pattern: '\b(api_live_ca\.[A-Za-z0-9_-]{20,80})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Onfido'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ONFIDO_LIVE_API_TOKEN_EU'
+    name: 'Onfido Live API Token Eu'
+    key: 'onfido_live_api_token_eu'
+    kind: context
+    severity: HIGH
+    pattern: '\b(api_live\.[A-Za-z0-9_-]{20,80})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Onfido'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ONFIDO_LIVE_API_TOKEN_US'
+    name: 'Onfido Live API Token Us'
+    key: 'onfido_live_api_token_us'
+    kind: context
+    severity: HIGH
+    pattern: '\b(api_live_us\.[A-Za-z0-9_-]{20,80})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Onfido'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_OPENSHIFT_USER_TOKEN'
+    name: 'OpenShift User Token'
+    key: 'openshift_user_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(sha256~[\w-]{43})(?:[^\w-]|\z)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'OpenShift'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_OPENWEATHER_API_KEY'
+    name: 'OpenWeather API Key'
+    key: 'openweather_api_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i:(?:openweather|pyowm)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'OpenWeather'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_OPSGENIE_API_KEY_1'
+    name: 'Opsgenie API Key'
+    key: 'opsgenie_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:opsgenie)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Opsgenie'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_OVH_APPLICATION_KEY'
+    name: 'OVH Application Key'
+    key: 'ovh_application_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:app(?:lication)?[_.-]{0,1}key)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9-]{16})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'OVH'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_OVH_APPLICATION_SECRET'
+    name: 'OVH Application Secret'
+    key: 'ovh_application_secret'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:app(?:lication)?[_.-]{0,1}secret)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9-]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'OVH'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_OVH_CONSUMER_KEY'
+    name: 'OVH Consumer Key'
+    key: 'ovh_consumer_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:consumer[_.-]{0,1}key)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9-]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'OVH'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_PADDLE_LIVE_API_KEY'
+    name: 'Paddle Live API Key'
+    key: 'paddle_live_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b(pdl_live_apikey_[a-z0-9]{26}_[A-Za-z0-9]{22}_[A-Za-z0-9]{3})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Paddle'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_PERSONA_PRODUCTION_API_KEY'
+    name: 'Persona Production API Key'
+    key: 'persona_production_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b(persona_production_[a-z0-9_-]{20,80})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Persona'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_PINECONE_API_KEY_1'
+    name: 'Pinecone API Key'
+    key: 'pinecone_api_key_1'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i:(?:pinecone(?:[_. -]*(?:api))?[_. -]*(?:secret|key|token))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Pinecone'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_PINECONE_API_KEY_2'
+    name: 'Pinecone API Key'
+    key: 'pinecone_api_key_2'
+    kind: context
+    severity: HIGH
+    pattern: '\b(pcsk_[A-Za-z0-9]{5,6}_[A-Za-z0-9]{63})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Pinecone'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_PINTEREST_ACCESS_TOKEN'
+    name: 'Pinterest Access Token'
+    key: 'pinterest_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(pina_[A-Za-z0-9_-]{20,200})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Pinterest'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_PLIVO_AUTH_ID'
+    name: 'Plivo Auth ID'
+    key: 'plivo_auth_id'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:plivo(?:[_. -]*(?:auth|account))?[_. -]*(?:id|sid))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(MA[A-Z0-9]{18})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Plivo'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_PLIVO_AUTH_TOKEN'
+    name: 'Plivo Auth Token'
+    key: 'plivo_auth_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:plivo(?:[_. -]*(?:auth))?[_. -]*(?:secret|token|key))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9_-]{40})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Plivo'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_POLAR_OAUTH_ACCESS_TOKEN'
+    name: 'Polar OAuth Access Token'
+    key: 'polar_oauth_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(polar_at_[A-Za-z0-9_-]{20,100})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Polar'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_POLAR_ORGANIZATION_ACCESS_TOKEN'
+    name: 'Polar Organization Access Token'
+    key: 'polar_organization_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(polar_oat_[A-Za-z0-9_-]{20,100})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Polar'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_POLAR_PERSONAL_ACCESS_TOKEN'
+    name: 'Polar Personal Access Token'
+    key: 'polar_personal_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(polar_pat_[A-Za-z0-9_-]{20,100})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Polar'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_POLYMARKET_ADDRESS'
+    name: 'Polymarket Address'
+    key: 'polymarket_address'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i:(?:poly.{0,20}address)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(0x[a-fA-F0-9]{40})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Polymarket'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_POLYMARKET_API_KEY'
+    name: 'Polymarket API Key'
+    key: 'polymarket_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:poly.{0,20}key)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Polymarket'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_POLYMARKET_API_SECRET'
+    name: 'Polymarket API Secret'
+    key: 'polymarket_api_secret'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i:(?:poly.{0,20}secret)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-zA-Z0-9+/]{40,}={0,2})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Polymarket'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_POLYMARKET_PASSPHRASE'
+    name: 'Polymarket Passphrase'
+    key: 'polymarket_passphrase'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i:(?:poly.{0,20}passphrase)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-zA-Z0-9_]{8,128})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Polymarket'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_POLYMARKET_PRIVATE_KEY'
+    name: 'Polymarket Private Key'
+    key: 'polymarket_private_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i:(?:poly.{0,20}private.{0,20}key)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(0x[a-fA-F0-9]{64})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Polymarket'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_POSTMARK_API_TOKEN_1'
+    name: 'Postmark API Token'
+    key: 'postmark_api_token_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:postmark)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Postmark'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_PREFECT_API_TOKEN'
+    name: 'Prefect API Token'
+    key: 'prefect_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(pnu_[a-zA-Z0-9]{36})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Prefect'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_PRIVATEAI_API_TOKEN'
+    name: 'Private AI API Token'
+    key: 'privateai_api_token'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i:(?:private[_-]?ai)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Private AI'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_PROOF_FULL_ACCESS_API_KEY'
+    name: 'Proof Full Access API Key'
+    key: 'proof_full_access_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b(prf_(?:cli_)?[A-Za-z0-9_-]{20,80})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Proof'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_RAINFOREST_PAY_PRODUCTION_API_KEY'
+    name: 'Rainforest Pay Production API Key'
+    key: 'rainforest_pay_production_api_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i:(?:rainforest(?:[_. -]*pay)?(?:[_. -]*(?:api))?[_. -]*(?:secret|key|token))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(apikey_[a-f0-9]{64})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Rainforest'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_RAMP_CLIENT_ID'
+    name: 'Ramp Client ID'
+    key: 'ramp_client_id'
+    kind: context
+    severity: HIGH
+    pattern: '\b(ramp_id_[A-Za-z0-9]{40})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Ramp'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_RAMP_CLIENT_SECRET'
+    name: 'Ramp Client Secret'
+    key: 'ramp_client_secret'
+    kind: context
+    severity: HIGH
+    pattern: '\b(ramp_sec_[A-Za-z0-9]{48})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Ramp'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_RAPIDAPI_ACCESS_TOKEN'
+    name: 'RapidAPI Access Token'
+    key: 'rapidapi_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:rapidapi)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9_-]{50})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'RapidAPI'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_README_API_TOKEN'
+    name: 'ReadMe API Token'
+    key: 'readme_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(rdme_[a-z0-9]{70})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'ReadMe'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_REDIRECT_PIZZA_API_TOKEN_1'
+    name: 'Redirect.pizza Pizza API Token'
+    key: 'redirect_pizza_api_token_1'
+    kind: context
+    severity: HIGH
+    pattern: '\b(rpa_[A-Za-z0-9]{30})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Redirect.pizza'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_RENDER_API_KEY'
+    name: 'Render API Key'
+    key: 'render_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '\b(rnd_[A-Za-z0-9]{28})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Render'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_RETELL_API_KEY_1'
+    name: 'Retell API Key'
+    key: 'retell_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:retell)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(key_[a-f0-9]{28})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Retell'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ROOTLY_API_KEY_1'
+    name: 'Rootly API Key'
+    key: 'rootly_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '\b(rootly_[a-f0-9]{64})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Rootly'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_RUNPOD_API_KEY_1'
+    name: 'Runpod API Key'
+    key: 'runpod_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '\b(rpa_[A-Z0-9]{40}[A-Za-z0-9]{6})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Runpod'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_SAMSARA_API_TOKEN_1'
+    name: 'Samsara API Token'
+    key: 'samsara_api_token_1'
+    kind: context
+    severity: HIGH
+    pattern: '\b(samsara_api_[A-Za-z0-9]{26,32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Samsara'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_SCALEWAY_SECRET_KEY'
+    name: 'Scaleway Secret Key'
+    key: 'scaleway_secret_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:(?:scaleway|scw).{0,20}?(?:secret|token))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Scaleway'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_SCALR_API_ACCESS_TOKEN_1'
+    name: 'Scalr API Access Token'
+    key: 'scalr_api_access_token_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:scalr(?:[_. -]*(?:api|access))?[_. -]*(?:secret|key|token))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJ1c2VyIiwianRpIjoiYXQt[A-Za-z0-9_-]{20,40}\.[A-Za-z0-9_-]{43})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Scalr'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_SENDBIRD_ACCESS_ID'
+    name: 'Sendbird Access ID'
+    key: 'sendbird_access_id'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:sendbird)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Sendbird'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_SENDBIRD_ACCESS_TOKEN'
+    name: 'Sendbird Access Token'
+    key: 'sendbird_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:sendbird)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-f0-9]{40})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Sendbird'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_SENDINBLUE_API_TOKEN'
+    name: 'Sendinblue API Token'
+    key: 'sendinblue_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(xkeysib-[a-fA-F0-9]{64}-[a-zA-Z0-9]{16})\b'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Sendinblue'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_SETTLEMINT_APPLICATION_ACCESS_TOKEN'
+    name: 'SettleMint Application Access Token'
+    key: 'settlemint_application_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(sm_aat_[a-zA-Z0-9]{16})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'SettleMint'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_SETTLEMINT_PERSONAL_ACCESS_TOKEN'
+    name: 'SettleMint Personal Access Token'
+    key: 'settlemint_personal_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(sm_pat_[a-zA-Z0-9]{16})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'SettleMint'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_SETTLEMINT_SERVICE_ACCESS_TOKEN'
+    name: 'SettleMint Service Access Token'
+    key: 'settlemint_service_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(sm_sat_[a-zA-Z0-9]{16})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'SettleMint'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_SIDEKIQ_SECRET'
+    name: 'Sidekiq Secret'
+    key: 'sidekiq_secret'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:BUNDLE_ENTERPRISE__CONTRIBSYS__COM|BUNDLE_GEMS__CONTRIBSYS__COM)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-f0-9]{8}:[a-f0-9]{8})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Sidekiq'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_SIDEKIQ_SENSITIVE_URL'
+    name: 'Sidekiq Sensitive URL'
+    key: 'sidekiq_sensitive_url'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)\bhttps?://([a-f0-9]{8}:[a-f0-9]{8})@(?:gems.contribsys.com|enterprise.contribsys.com)(?:[\/|\#|\?|:]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Sidekiq'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_SOURCEGRAPH_ACCESS_TOKEN'
+    name: 'Sourcegraph Access Token'
+    key: 'sourcegraph_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)\b(sgp_(?:[a-fA-F0-9]{16}|local)_[a-fA-F0-9]{40}|sgp_[a-fA-F0-9]{40})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Sourcegraph'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_SSLMATE_API_KEY_1'
+    name: 'SSLMate API Key'
+    key: 'sslmate_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:sslmate(?:[_. -]*(?:api))?[_. -]*(?:secret|key|token))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9]{36})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'SSLMate'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_STABILITY_AI_API_KEY'
+    name: 'Stability AI API Key'
+    key: 'stability_ai_api_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:stability)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(sk-[A-Za-z0-9]{48})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Stability AI'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_SUMOLOGIC_ACCESS_ID'
+    name: 'Sumo Logic Access ID'
+    key: 'sumologic_access_id'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:(?-i:[Ss]umo|SUMO))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+((?-i:su)[a-zA-Z0-9]{12})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Sumo Logic'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_SUMOLOGIC_ACCESS_TOKEN'
+    name: 'Sumo Logic Access Token'
+    key: 'sumologic_access_token'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:(?-i:[Ss]umo|SUMO))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-z0-9]{64})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Sumo Logic'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_TABLEAU_PERSONAL_ACCESS_TOKEN_NAME_1'
+    name: 'Tableau Personal Access Token Name'
+    key: 'tableau_personal_access_token_name_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:tableau(?:[_. -]*(?:personal[_. -]*access|pat))?[_. -]*(?:token[_. -]*)?name)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z][A-Za-z0-9_-]{2,50})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Tableau'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_TABLEAU_PERSONAL_ACCESS_TOKEN_1'
+    name: 'Tableau Personal Access Token'
+    key: 'tableau_personal_access_token_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?:^|[^A-Za-z0-9+/])([A-Za-z0-9+/]{22}==:[A-Za-z0-9]{32})\b'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Tableau'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_TABLEAU_SERVER_HOST_1'
+    name: 'Tableau Server Host'
+    key: 'tableau_server_host_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)\b([a-z0-9-]{1,63}+\.online\.tableau\.com)\b'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Tableau'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_TELNYX_API_V2_KEY_1'
+    name: 'Telnyx API V2 Key'
+    key: 'telnyx_api_v2_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:telnyx(?:[_. -]*(?:api))?[_. -]*(?:secret|key|token))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(KEY[0-9A-Za-z_-]{55})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Telnyx'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # KF_TEMPORAL_CLOUD_API_KEY_1 quarantined 2026-10-25: upstream pattern is both ReDoS-prone and
+  # not example-generatable (highly specific embedded-base64 JWT); re-author before re-adding.
+  - id: 'KF_THUNDERSTORE_API_TOKEN_1'
+    name: 'Thunderstore API Token'
+    key: 'thunderstore_api_token_1'
+    kind: context
+    severity: HIGH
+    pattern: '\b(tss_[A-Za-z0-9_-]{20,80})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Thunderstore'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_TOGETHERAI_API_KEY'
+    name: 'Togetherai API Key'
+    key: 'togetherai_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)\b(tgp_v1_[A-Za-z0-9_-]{43})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Togetherai'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_TYPEFORM_API_TOKEN'
+    name: 'Typeform API Token'
+    key: 'typeform_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:typeform)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(tfp_[a-z0-9\-_\.=]{59})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Typeform'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_UNKEY_ROOT_KEY_1'
+    name: 'Unkey Root Key'
+    key: 'unkey_root_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '\b(unkey_[A-Za-z0-9]{20,32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Unkey'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_UPCLOUD_API_TOKEN'
+    name: 'UpCloud API Token'
+    key: 'upcloud_api_token'
+    kind: context
+    severity: HIGH
+    pattern: '\b(ucat_[0-9A-Za-z]{24,32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'UpCloud'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_UPSTAGE_API_KEY'
+    name: 'Upstage API Key'
+    key: 'upstage_api_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:upstage)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9]{40,50})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Upstage'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_UPSTASH_REDIS_REST_TOKEN_1'
+    name: 'Upstash Redis REST Token'
+    key: 'upstash_redis_rest_token_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:upstash)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+((?:[A-Za-z0-9]{32,48}|AYNgAS[A-Za-z0-9+/_-]{26,90}={0,2}))(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Upstash'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_UPSTASH_REDIS_REST_URL_1'
+    name: 'Upstash Redis REST URL'
+    key: 'upstash_redis_rest_url_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)\b(https://[a-z0-9][a-z0-9-]{2,63}\.upstash\.io)(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Upstash'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_VAL_TOWN_API_TOKEN_1'
+    name: 'Val Town API Token'
+    key: 'val_town_api_token_1'
+    kind: context
+    severity: HIGH
+    pattern: '\b(vtwn_[A-Za-z0-9_-]{20,80})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Val'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_VIRUSTOTAL_API_KEY_1'
+    name: 'Virustotal API Key'
+    key: 'virustotal_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:virustotal)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-f0-9]{64})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Virustotal'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_VOYAGEAI_API_KEY'
+    name: 'Voyageai API Key'
+    key: 'voyageai_api_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?:(?:\A|(?:[\x00-,\./:-@\[-\^`\{-\xFF]))((?:(?:(?:pa)|(?:al))\-(?:[\-0-9A-Z_a-z]){43}))(?:(?:\\?(?:["''`]))|(?:[\x09-\x0D\x20;])|(?:\\(?:[nr]))|\z))'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Voyageai'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_VULTR_API_KEY_1'
+    name: 'Vultr API Key'
+    key: 'vultr_api_key_1'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:vultr)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-f0-9]{36})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Vultr'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_WAKATIME_API_KEY_1'
+    name: 'WakaTime API Key'
+    key: 'wakatime_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:waka[_. -]?time(?:[_. -]*(?:api))?[_. -]*(?:secret|key|token))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'WakaTime'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_WAKATIME_API_KEY_2'
+    name: 'WakaTime API Key'
+    key: 'wakatime_api_key_2'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)\b(waka_[a-z0-9]{36,64})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'WakaTime'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_WEATHERSTACK_API_KEY_1'
+    name: 'Weatherstack API Key'
+    key: 'weatherstack_api_key_1'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i:(?:weatherstack(?:[_. -]*(?:api))?[_. -]*(?:secret|key|token))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([0-9a-z]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Weatherstack'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_WEIGHTS_AND_BIASES_API_KEY'
+    name: 'Weights And Biases API Key'
+    key: 'weights_and_biases_api_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:wandb|weightsandbiases)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-f0-9]{40})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Weights'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_WEIGHTS_AND_BIASES_API_KEY_V1'
+    name: 'Weights And Biases API Key V1'
+    key: 'weights_and_biases_api_key_v1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)\b(wandb_v1_[A-Za-z0-9_]{77})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Weights'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_WIZ_CLIENT_ID_1'
+    name: 'Wiz Client ID'
+    key: 'wiz_client_id_1'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i:(?:wiz)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9]{53,56})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Wiz'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_WIZ_CLIENT_SECRET_1'
+    name: 'Wiz Client Secret'
+    key: 'wiz_client_secret_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:wiz)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([A-Za-z0-9]{64})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Wiz'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_WORKATO_DEVELOPER_API_TOKEN_1'
+    name: 'Workato Developer API Token'
+    key: 'workato_developer_api_token_1'
+    kind: context
+    severity: HIGH
+    pattern: '\b(wrka(?:[a-z]{2})?-eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{64,})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Workato'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_WORKOS_PRODUCTION_API_KEY_1'
+    name: 'Workos Production API Key'
+    key: 'workos_production_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i:(?:workos(?:[_. -]*(?:api))?[_. -]*(?:secret|key|token))(?:[ \t\w.-]{0,20}+)[\s''"]{0,3})(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(sk_live_a2V5Xz[A-Za-z0-9+/]{69}={0,2})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Workos'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_XENDIT_PRODUCTION_API_KEY_1'
+    name: 'Xendit Production API Key'
+    key: 'xendit_production_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '\b(xnd_production_[A-Za-z0-9]{56,72})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Xendit'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_YANDEX_ACCESS_TOKEN'
+    name: 'Yandex Access Token'
+    key: 'yandex_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:yandex)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(t1\.[A-Z0-9a-z_-]+[=]{0,2}\.[A-Z0-9a-z_-]{86}[=]{0,2})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Yandex'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_YANDEX_API_KEY'
+    name: 'Yandex API Key'
+    key: 'yandex_api_key'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:yandex)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(AQVN[A-Za-z0-9_\-]{35,38})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Yandex'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_YANDEX_AWS_ACCESS_TOKEN'
+    name: 'Yandex AWS Access Token'
+    key: 'yandex_aws_access_token'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:yandex)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(YC[a-zA-Z0-9_\-]{38})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Yandex'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ZAI_API_KEY'
+    name: 'Z.ai API Key'
+    key: 'zai_api_key'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?:(?:\A|(?:[\x00-,\./:-@\[-\^`\{-\xFF]))((?:(?:[0-9A-Fa-f]){32}\.(?:[0-9A-Za-z]){16}))(?:(?:\\?(?:["''`]))|(?:[\x09-\x0D\x20;])|(?:\\(?:[NRnr]))|\z))'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Z.ai'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ZOHO_CLIENT_ID_1'
+    name: 'Zoho Client ID'
+    key: 'zoho_client_id_1'
+    kind: context
+    severity: MEDIUM
+    pattern: '(?i)(?:zoho)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(1000\.[a-z0-9]{30})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Zoho'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ZOHO_CLIENT_SECRET_1'
+    name: 'Zoho Client Secret'
+    key: 'zoho_client_secret_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:zoho)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+([a-f0-9]{42})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Zoho'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ZOHO_OAUTH_TOKEN_1'
+    name: 'Zoho OAuth Token'
+    key: 'zoho_oauth_token_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:zoho)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+(1000\.[a-f0-9]{32}\.[a-f0-9]{32})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Zoho'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ZOHO_ZAPI_KEY_1'
+    name: 'Zoho Zapi Key'
+    key: 'zoho_zapi_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '(?i)(?:zoho)(?:[ \t\w.-]{0,20}+)[\s''"]{0,3}+(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[\x60''"\s=]{0,5}+((?:1001\.[a-f0-9]{32}\.[a-f0-9]{32}(?:-d)?|1003\.[a-f0-9]{32,64}))(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Zoho'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'KF_ZUPLO_CONSUMER_API_KEY_1'
+    name: 'Zuplo Consumer API Key'
+    key: 'zuplo_consumer_api_key_1'
+    kind: context
+    severity: HIGH
+    pattern: '\b(zpka_[a-z0-9]{32}_[0-9a-f]{8})(?:\\?[''"\x60]|[\s;]|\\[nr]|$)'
+    group: 1
+    source: 'kingfisher-betterleaks'
+    license: 'Apache-2.0'
+    provider: 'Zuplo'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'

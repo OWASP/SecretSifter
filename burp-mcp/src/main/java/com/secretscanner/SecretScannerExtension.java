@@ -5,7 +5,6 @@ import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.scanner.scancheck.ScanCheckType;
 
-import javax.swing.JTabbedPane;
 import javax.swing.SwingUtilities;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -19,7 +18,7 @@ import java.util.Map;
  * Designed for BApp Store submission.
  *
  * Features:
- *   - Passive scanning of all proxy traffic (217 detection rules: anchored vendor tokens, entropy, KV,
+ *   - Passive scanning of proxy traffic and WebSocket text frames (YAML vendor rules, entropy, KV,
  *     URL creds, DB connection strings, SSR state blobs, JSON walking, PII)
  *     Includes HTML inline script extraction (scans secrets in <script> tags)
  *   - Active rescan via right-click context menu with Save HTML Report option
@@ -34,7 +33,10 @@ public class SecretScannerExtension implements BurpExtension {
 
     @Override
     public void initialize(MontoyaApi api) {
-        api.extension().setName("SecretSifter Burp MCP");
+        api.extension().setName(Branding.NAME);
+
+        // 0. Permanent issue IDs (SS-102426-7K4M2Q), stable across scans and restarts
+        BurpIssueStore.install(api);
 
         // 1. Settings model (loaded from Burp preferences after SettingsPanel is wired)
         ScanSettings settings = new ScanSettings();
@@ -57,6 +59,14 @@ public class SecretScannerExtension implements BurpExtension {
         SecretProxyHandler proxyHandler = new SecretProxyHandler(scanner, settings, api);
         api.proxy().registerResponseHandler(proxyHandler);
 
+        // WebSocket text frames (both directions) through the proxy
+        SecretWebSocketHandler wsHandler = new SecretWebSocketHandler(scanner, settings, api);
+        try {
+            api.proxy().registerWebSocketCreationHandler(wsHandler);
+        } catch (RuntimeException e) {
+            api.logging().logToError("[OWASP SecretSifter] WebSocket scanning unavailable: " + e);
+        }
+
         // 4. Context menu — right-click "Rescan for Secrets" in Proxy History / Repeater
         SecretContextMenu contextMenu = new SecretContextMenu(scanner, settings, api);
         api.userInterface().registerContextMenuItemsProvider(contextMenu);
@@ -64,22 +74,21 @@ public class SecretScannerExtension implements BurpExtension {
         // 4b. Inline response tab — "SecretSifter" tab in HTTP History / Proxy / Repeater
         api.userInterface().registerHttpResponseEditorProvider(new SecretSifterTab(scanner));
 
-        // 5. Settings panel + Bulk Scan panel — merged into a single suite tab
+        // 5. Settings go to Burp's native Settings dialog (registerSettingsPanel), matching the
+        //    store edition; the suite tab shows only the Bulk Scan dashboard.
         SettingsPanel settingsPanel = new SettingsPanel(settings, api);
         BulkScanPanel bulkPanel    = new BulkScanPanel(scanner, settings, api);
 
-        // Single top-level tab with two sub-tabs to keep Burp's tab bar uncluttered
-        JTabbedPane tabPane = new JTabbedPane();
-        tabPane.addTab("Bulk Scan", bulkPanel.getPanel());
-        tabPane.addTab("Settings",  settingsPanel.getPanel());
-        api.userInterface().registerSuiteTab("SecretSifter MCP", tabPane);
+        api.userInterface().registerSettingsPanel(settingsPanel);
+        api.userInterface().registerSuiteTab(Branding.NAME, Branding.wrap(bulkPanel.getPanel()));
 
         // 6. Load persisted settings (must happen after panels are registered so UI syncs)
         settingsPanel.loadFromPreferences();
         bulkPanel.syncFromSettings();   // restore saved scan tier into the BulkScan combo
         bulkPanel.syncHttpClient();     // rebuild HTTP_CLIENT now that allowInsecureSsl pref is loaded
 
-        api.logging().logToOutput("[*] Loaded:\tSecretSifter Burp MCP v1.0.0");
+        api.logging().logToOutput(Branding.banner("MCP edition"));
+        api.logging().logToOutput("[*] Loaded:\t" + Branding.NAME + " v" + SecretSifterVersion.VALUE + " (Full)");
         api.logging().logToOutput("[*] Author:\tHemanth Gorijala");
         api.logging().logToOutput("[*] Config:\tTier=" + settings.getTier() +
                 "  Entropy≥" + settings.getEntropyThreshold() +
@@ -119,10 +128,11 @@ public class SecretScannerExtension implements BurpExtension {
                 String url = rr.request().url();
                 if (url == null || settings.isExternalCdn(url)) continue;
                 int status = rr.response().statusCode();
-                if (status < 200 || status >= 400) continue;
+                if (status < 200 || status == 304) continue;            // error pages leak secrets too
                 String body = rr.response().bodyToString();
-                if (body == null || body.length() < 50) continue;
+                if (body == null || body.length() < 20) continue;
                 String ct = rr.response().headerValue("Content-Type");
+                if (ScanSettings.isBinaryMedia(ct)) continue;
                 try {
                     List<SecretFinding> findings = scanner.scanText(body, ct, url);
                     if (!findings.isEmpty()) {
@@ -146,6 +156,7 @@ public class SecretScannerExtension implements BurpExtension {
             bulkPanel.shutdown();          // stops scan, interrupts siteMapSweepThread, releases index
             sitemapSweep.interrupt();      // stop the startup sitemap sweep if still running
             proxyHandler.shutdown();
+            wsHandler.shutdown();
             contextMenu.shutdown();
             scanner.clearRequestDedup();   // free proxy-handler dedup set
             SitemapDeduplicator.clear();

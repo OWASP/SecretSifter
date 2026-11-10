@@ -40,7 +40,7 @@ public class SecretScanCheck implements PassiveScanCheck {
         try {
             List<SecretFinding> findings = scanner.scanRequestResponse(requestResponse);
             // Route to Bulk Scan panel immediately — Burp's scanner thread runs doCheck()
-            // faster than SecretProxyHandler's 2-thread executor pool, so routing here closes
+            // faster than SecretProxyHandler's background executor pool, so routing here closes
             // the gap between "site map shows findings" and "bulk scan table shows findings".
             // seenFindings dedup in appendFinding prevents any double-counting.
             if (ScopeMonitor.isActive() && !findings.isEmpty()

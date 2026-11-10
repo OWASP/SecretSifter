@@ -1,7 +1,7 @@
 {
   "packageName": "com.secretscanner",
   "displayName": "SecretSifter Burp MCP",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "minBurpVersion": "2024.7",
   "extensionClass": "com.secretscanner.SecretScannerExtension",
   "description": "Full edition of SecretSifter for Burp Suite. Adds multi-provider AI Triage (Burp AI, Anthropic, OpenAI) and a Model Context Protocol (MCP) server on 127.0.0.1:8765 for Claude Code integration on top of the same 100+ vendor token rules, entropy scanner, Bulk Scan, and HTML/CSV exports as the BApp Store edition.",

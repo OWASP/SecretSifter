@@ -31,7 +31,7 @@ import java.util.List;
  *
  * Settings are persisted to Burp's preference store on Save.
  */
-public class SettingsPanel {
+public class SettingsPanel implements burp.api.montoya.ui.settings.SettingsPanel {
 
     private static final String CUSTOM_RULES_PLACEHOLDER =
             "# Format: RuleName | regex | severity  (HIGH / MEDIUM / LOW / INFORMATION)\n" +
@@ -61,6 +61,12 @@ public class SettingsPanel {
     private JTextArea    keyBlocklistArea;
     private JTextArea    keyAllowlistArea;
     private JTextArea    customRulesArea;
+    private JTextArea    validationCustomArea;
+    private JTextArea    validationBaseUrlArea;
+    private ToggleSwitch liveValidationBox;
+    private javax.swing.table.DefaultTableModel validationModel;
+    private java.util.Set<String> validationEnabledIds = new java.util.HashSet<>();
+    private java.util.List<com.secretscanner.core.ValidationRule> validationCatalog;
     private ToggleSwitch customRulesEnabledBox;
     private ToggleSwitch customRulesOnlyBox;
     private JLabel       statusLabel;
@@ -72,7 +78,10 @@ public class SettingsPanel {
     private JComboBox<String> aiProviderCombo;
     private JPasswordField    aiApiKeyField;
     private JTextField        aiEndpointField;
-    private JTextField        aiModelField;
+    private JComboBox<String> aiModelCombo;
+    private static final String MODEL_LATEST_LABEL = "Latest (recommended)";
+    /** Provider per combo index (MCP only in the full build). */
+    private AiTriageProvider.Provider[] aiProviderMap;
     private JPanel            aiKeyRow, aiEndpointRow, aiModelRow;
 
     /** Full build constructor — includes MCP server section. */
@@ -102,6 +111,22 @@ public class SettingsPanel {
         return rootPanel != null ? rootPanel : new JPanel();
     }
 
+    // ---- burp.api.montoya.ui.settings.SettingsPanel ----
+
+    /** The component Burp renders in its native Settings dialog. */
+    @Override
+    public JComponent uiComponent() {
+        return getPanel();
+    }
+
+    /** Keywords for Burp's Settings search box. */
+    @Override
+    public java.util.Set<String> keywords() {
+        return java.util.Set.of("secret", "secrets", "secretsifter", "entropy",
+                "pii", "cdn", "api key", "credentials", "custom rules",
+                "ai triage", "mcp", "validation");
+    }
+
     // =========================================================================
     // UI construction
     // =========================================================================
@@ -115,7 +140,7 @@ public class SettingsPanel {
         headerPanel.setLayout(new BoxLayout(headerPanel, BoxLayout.Y_AXIS));
         headerPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 6, 0));
 
-        JLabel nameLbl = new JLabel("SecretSifter");
+        JLabel nameLbl = new JLabel(Branding.NAME);
         nameLbl.setFont(nameLbl.getFont().deriveFont(Font.BOLD, 22f));
         nameLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -185,7 +210,7 @@ public class SettingsPanel {
         cdnArea = new JTextArea(String.join("\n", settings.getCdnBlocklist()), 8, 20);
         cdnArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         cdnArea.setToolTipText("Responses from hosts matching any of these strings are skipped.");
-        cdnPanel.add(new JScrollPane(cdnArea), BorderLayout.CENTER);
+        cdnPanel.add(Branding.watermarkInBox(new JScrollPane(cdnArea)), BorderLayout.CENTER);
         cdnPanel.add(makeSearchBar(cdnArea), BorderLayout.SOUTH);
 
         // Key Name Blocklist
@@ -198,7 +223,7 @@ public class SettingsPanel {
                 "Findings whose matched key name contains any entry here are suppressed. " +
                 "Example: add STORAGE_KEY_ to hide all localStorage constant names. " +
                 "Allowlisted keys override this list.");
-        keyBlockPanel.add(new JScrollPane(keyBlocklistArea), BorderLayout.CENTER);
+        keyBlockPanel.add(Branding.watermarkInBox(new JScrollPane(keyBlocklistArea)), BorderLayout.CENTER);
         keyBlockPanel.add(makeSearchBar(keyBlocklistArea), BorderLayout.SOUTH);
 
         // Key Name Allowlist
@@ -211,7 +236,7 @@ public class SettingsPanel {
                 "Findings whose matched key name contains any entry here are always reported, " +
                 "even if the value fails entropy checks. " +
                 "Example: add APIM_KEY to ensure all APIM key names are captured.");
-        keyAllowPanel.add(new JScrollPane(keyAllowlistArea), BorderLayout.CENTER);
+        keyAllowPanel.add(Branding.watermarkInBox(new JScrollPane(keyAllowlistArea)), BorderLayout.CENTER);   // OWASP mark inside the box
         keyAllowPanel.add(makeSearchBar(keyAllowlistArea), BorderLayout.SOUTH);
 
         JPanel filterRow = new JPanel(new GridLayout(1, 3, 8, 0));
@@ -249,7 +274,7 @@ public class SettingsPanel {
                 "Add your own detection patterns on top of the built-in rules. " +
                 "Format: RuleName | regex | severity  (severity: HIGH / MEDIUM / LOW / INFORMATION). " +
                 "Example:  MyInternalToken | [A-Z]{3}-[0-9]{10}-[a-z]{5} | HIGH");
-        customRulesTab.add(new JScrollPane(customRulesArea), BorderLayout.CENTER);
+        customRulesTab.add(Branding.watermarkInBox(new JScrollPane(customRulesArea)), BorderLayout.CENTER);
 
         JPanel customRulesBtnBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
         JButton importRulesBtn = new JButton("Import from file\u2026");
@@ -277,6 +302,152 @@ public class SettingsPanel {
         subTabs.addTab("Custom Rules", customRulesTab);
 
         // ═══════════════════════════════════════════════════════════════════
+        // TAB — Validation  (choose which findings get validated)
+        // ═══════════════════════════════════════════════════════════════════
+        {
+            JPanel valTab = new JPanel(new BorderLayout(8, 6));
+            valTab.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+
+            // Burp disables HTML rendering in Swing labels (it would show the raw tags), so use a
+            // wrapping, non-editable text area styled like a label instead of an <html> JLabel.
+            JTextArea intro = new JTextArea(
+                    "Pick which findings get validated, grouped by provider. Turn validation on from "
+                    + "Dashboard → Validate; it runs the selected offline checks (JWT expiry, Luhn, your "
+                    + "regex) and sends nothing anywhere. Live (network) entries send the found key to the "
+                    + "provider's endpoint to check if it is still live — that only happens when you enable "
+                    + "the switch below and select the provider.");
+            intro.setEditable(false);
+            intro.setLineWrap(true);
+            intro.setWrapStyleWord(true);
+            intro.setOpaque(false);
+            intro.setBorder(BorderFactory.createEmptyBorder(0, 0, 4, 0));
+            intro.setFont(UIManager.getFont("Label.font"));
+            intro.setForeground(UIManager.getColor("Label.foreground"));
+            intro.setFocusable(false);
+
+            validationCatalog = ValidationCatalog.builtIn();
+            validationEnabledIds = new java.util.HashSet<>(settings.getValidationEnabledIds());
+            String[] vcols = {"On", "Name", "Provider", "Check", "Endpoint (what a live check contacts)"};
+            validationModel = new javax.swing.table.DefaultTableModel(vcols, 0) {
+                @Override public Class<?> getColumnClass(int c) { return c == 0 ? Boolean.class : String.class; }
+                @Override public boolean isCellEditable(int r, int c) { return false; }
+            };
+            java.util.Map<String, String> baseMap = settings.validationBaseUrlMap();
+            for (com.secretscanner.core.ValidationRule vr : validationCatalog)
+                validationModel.addRow(new Object[]{ validationEnabledIds.contains(vr.id()),
+                        vr.name(), vr.provider(), vr.check().label(),
+                        com.secretscanner.core.ValidationEndpoints.resolve(vr.provider(), baseMap.get(vr.provider())) });
+            JTable valTable = new JTable(validationModel);
+            valTable.setRowHeight(22);
+            javax.swing.table.DefaultTableCellRenderer vplain = new javax.swing.table.DefaultTableCellRenderer();
+            vplain.putClientProperty("html.disable", Boolean.TRUE);
+            valTable.setDefaultRenderer(String.class, vplain);
+            // "On" column renders as the same toggle switch used elsewhere in the tool; a single
+            // click anywhere in the cell flips it (handled below), so no cell editor is needed.
+            valTable.getColumnModel().getColumn(0).setCellRenderer(new ToggleCellRenderer());
+            valTable.addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override public void mousePressed(java.awt.event.MouseEvent e) {
+                    int vcol = valTable.columnAtPoint(e.getPoint());
+                    int vrow = valTable.rowAtPoint(e.getPoint());
+                    if (vcol != 0 || vrow < 0) return;
+                    int mrow = valTable.convertRowIndexToModel(vrow);
+                    boolean cur = Boolean.TRUE.equals(validationModel.getValueAt(mrow, 0));
+                    validationModel.setValueAt(!cur, mrow, 0);
+                }
+            });
+            valTable.getColumnModel().getColumn(0).setMaxWidth(44);
+            valTable.getColumnModel().getColumn(0).setPreferredWidth(44);
+            valTable.getColumnModel().getColumn(1).setPreferredWidth(230);
+            valTable.getColumnModel().getColumn(2).setPreferredWidth(130);
+            valTable.getColumnModel().getColumn(3).setPreferredWidth(150);
+            valTable.getColumnModel().getColumn(4).setPreferredWidth(320);
+            javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel> vsort =
+                    new javax.swing.table.TableRowSorter<>(validationModel);
+            valTable.setRowSorter(vsort);
+            validationModel.addTableModelListener(ev -> {
+                if (ev.getColumn() != 0) return;
+                int row = ev.getFirstRow();
+                if (row < 0 || row >= validationCatalog.size()) return;
+                String id = validationCatalog.get(row).id();
+                if (Boolean.TRUE.equals(validationModel.getValueAt(row, 0))) validationEnabledIds.add(id);
+                else validationEnabledIds.remove(id);
+            });
+
+            JComboBox<String> provCombo = new JComboBox<>();
+            provCombo.addItem("All providers");
+            for (String prov : ValidationCatalog.byProvider().keySet()) provCombo.addItem(prov);
+            JTextField vsearch = new JTextField(16);
+            JButton selShown   = new JButton("Select shown");
+            JButton deselShown = new JButton("Deselect shown");
+            liveValidationBox = new ToggleSwitch("Allow live (network) validation", settings.isLiveValidationEnabled());
+            liveValidationBox.setToolTipText("Off by default. When ON, selected \"Live (network)\" providers are checked by "
+                    + "sending the found key to the provider's verify endpoint (one read-only request). Only enable against "
+                    + "providers/apps you are authorized to test.");
+            JPanel vcontrols = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 2));
+            vcontrols.add(new JLabel("Provider:")); vcontrols.add(provCombo);
+            vcontrols.add(new JLabel("  Search:")); vcontrols.add(vsearch);
+            vcontrols.add(selShown); vcontrols.add(deselShown);
+            vcontrols.add(new JLabel("   ")); vcontrols.add(liveValidationBox);
+
+            Runnable applyVFilter = () -> {
+                String prov = (String) provCombo.getSelectedItem();
+                String q = vsearch.getText().trim().toLowerCase();
+                vsort.setRowFilter(new javax.swing.RowFilter<javax.swing.table.DefaultTableModel, Integer>() {
+                    @Override public boolean include(Entry<? extends javax.swing.table.DefaultTableModel, ? extends Integer> e) {
+                        boolean provOk = prov == null || prov.equals("All providers") || prov.equals(String.valueOf(e.getValue(2)));
+                        boolean qOk = q.isEmpty() || String.valueOf(e.getValue(1)).toLowerCase().contains(q);
+                        return provOk && qOk;
+                    }
+                });
+            };
+            provCombo.addActionListener(e -> applyVFilter.run());
+            vsearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+                public void insertUpdate(javax.swing.event.DocumentEvent e) { applyVFilter.run(); }
+                public void removeUpdate(javax.swing.event.DocumentEvent e) { applyVFilter.run(); }
+                public void changedUpdate(javax.swing.event.DocumentEvent e) { applyVFilter.run(); }
+            });
+            selShown.addActionListener(e -> { for (int v = 0; v < valTable.getRowCount(); v++)
+                    validationModel.setValueAt(Boolean.TRUE, valTable.convertRowIndexToModel(v), 0); });
+            deselShown.addActionListener(e -> { for (int v = 0; v < valTable.getRowCount(); v++)
+                    validationModel.setValueAt(Boolean.FALSE, valTable.convertRowIndexToModel(v), 0); });
+
+            JPanel vnorth = new JPanel(new BorderLayout(0, 4));
+            vnorth.add(intro, BorderLayout.NORTH);
+            vnorth.add(vcontrols, BorderLayout.SOUTH);
+            valTab.add(vnorth, BorderLayout.NORTH);
+            valTab.add(Branding.watermarkInBox(new JScrollPane(valTable)), BorderLayout.CENTER);
+
+            validationCustomArea = new JTextArea(String.join("\n", settings.getValidationCustomRules()), 4, 20);
+            validationCustomArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+            validationCustomArea.setToolTipText("One per line: name | regex | STATE | note   "
+                    + "(STATE = ACTIVE, INACTIVE, RESTRICTED or UNKNOWN). "
+                    + "Example:  sandbox key | ^sk_test_ | INACTIVE | our test key");
+            JPanel vcustom = new JPanel(new BorderLayout(4, 2));
+            vcustom.setBorder(new javax.swing.border.TitledBorder(
+                    "Custom validation rules  (name | regex | STATE | note \u2014 matched against each finding's value)"));
+            vcustom.add(Branding.watermarkInBox(new JScrollPane(validationCustomArea)), BorderLayout.CENTER);
+
+            validationBaseUrlArea = new JTextArea(String.join("\n", settings.getValidationBaseUrls()), 4, 20);
+            validationBaseUrlArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+            validationBaseUrlArea.setToolTipText("<html>Set or override the endpoint a live check uses, one per line. Provider name must match the table.<br>"
+                    + "&nbsp;&nbsp;Self-hosted host (fills a {base} provider):&nbsp; <b>GitLab = https://gitlab.yourco.com</b><br>"
+                    + "&nbsp;&nbsp;Full endpoint for ANY provider (incl. \"not verifiable\" ones):&nbsp; <b>Z.ai = GET https://api.z.ai/v1/me</b></html>");
+            JPanel vbase = new JPanel(new BorderLayout(4, 2));
+            vbase.setBorder(new javax.swing.border.TitledBorder(
+                    "Validation endpoints  (Provider = https://your-host for self-hosted, or Provider = GET https://host/path to set/override any)"));
+            vbase.add(Branding.watermarkInBox(new JScrollPane(validationBaseUrlArea)), BorderLayout.CENTER);
+
+            JPanel vsouth = new JPanel(new java.awt.GridLayout(1, 2, 6, 0));
+            vsouth.add(vcustom);
+            vsouth.add(vbase);
+            vsouth.setPreferredSize(new Dimension(10, 130));
+            valTab.add(vsouth, BorderLayout.SOUTH);
+
+            subTabs.addTab("Validation", valTab);
+        }
+
+
+        // ═══════════════════════════════════════════════════════════════════
         // TAB 3 — AI Triage  (always visible)
         // ═══════════════════════════════════════════════════════════════════
         {
@@ -290,9 +461,15 @@ public class SettingsPanel {
             // Provider row
             JPanel provRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
             provRow.add(new JLabel("Provider:"));
-            java.util.List<String> provOpts = new java.util.ArrayList<>(
-                    java.util.Arrays.asList("Burp AI (Pro)", "Anthropic API (Claude)", "OpenAI / Compatible"));
-            if (withMcp) provOpts.add("Claude via MCP");
+            java.util.List<String> provOpts = new java.util.ArrayList<>(java.util.Arrays.asList(
+                    "Burp AI (Pro)", "Claude (Anthropic API)", "OpenAI", "Google Gemini", "DeepSeek",
+                    "OpenAI-compatible (custom endpoint)"));
+            java.util.List<AiTriageProvider.Provider> provMap = new java.util.ArrayList<>(java.util.List.of(
+                    AiTriageProvider.Provider.BURP, AiTriageProvider.Provider.ANTHROPIC, AiTriageProvider.Provider.OPENAI,
+                    AiTriageProvider.Provider.GEMINI, AiTriageProvider.Provider.DEEPSEEK,
+                    AiTriageProvider.Provider.OPENAI_COMPATIBLE));
+            if (withMcp) { provOpts.add("Claude via MCP"); provMap.add(AiTriageProvider.Provider.MCP); }
+            aiProviderMap = provMap.toArray(new AiTriageProvider.Provider[0]);
             aiProviderCombo = new JComboBox<>(provOpts.toArray(new String[0]));
             aiProviderCombo.setToolTipText("AI backend used by the 'AI Triage All' button");
             provRow.add(aiProviderCombo);
@@ -302,7 +479,7 @@ public class SettingsPanel {
             aiKeyRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
             aiKeyRow.add(new JLabel("API Key:"));
             aiApiKeyField = new JPasswordField(32);
-            aiApiKeyField.setToolTipText("Anthropic or OpenAI API key");
+            aiApiKeyField.setToolTipText("API key for the selected provider (stored in Burp's extension preferences)");
             JButton showKeyBtn = new JButton("Show");
             showKeyBtn.addActionListener(e -> {
                 boolean shown = aiApiKeyField.getEchoChar() == 0;
@@ -316,17 +493,25 @@ public class SettingsPanel {
             // Endpoint row
             aiEndpointRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
             aiEndpointRow.add(new JLabel("Endpoint:"));
-            aiEndpointField = new JTextField("https://api.openai.com/v1/chat/completions", 38);
-            aiEndpointField.setToolTipText("OpenAI-compatible endpoint URL (leave default for OpenAI)");
+            aiEndpointField = new JTextField("", 38);
+            aiEndpointField.setToolTipText("Chat-completions URL of an OpenAI-compatible server, e.g. "
+                    + "https://api.mistral.ai/v1/chat/completions or http://localhost:11434/v1/chat/completions (https required except localhost)");
             aiEndpointRow.add(aiEndpointField);
             ctrlPanel.add(aiEndpointRow);
 
             // Model row
             aiModelRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
             aiModelRow.add(new JLabel("Model:    "));
-            aiModelField = new JTextField("gpt-4o", 22);
-            aiModelField.setToolTipText("Model name (e.g. gpt-4o, gpt-4-turbo)");
-            aiModelRow.add(aiModelField);
+            aiModelCombo = new JComboBox<>(new String[]{MODEL_LATEST_LABEL});
+            aiModelCombo.setEditable(true);
+            aiModelCombo.setPrototypeDisplayValue("claude-opus-5-5-xxxxxxxxxxxx");
+            aiModelCombo.setToolTipText("'Latest' picks the provider's newest flagship model each time triage runs; "
+                    + "or choose / type a specific model");
+            aiModelRow.add(aiModelCombo);
+            JButton refreshModelsBtn = new JButton("Refresh models");
+            refreshModelsBtn.setToolTipText("List the models your key can use, newest first");
+            refreshModelsBtn.addActionListener(e -> refreshModelList(refreshModelsBtn));
+            aiModelRow.add(refreshModelsBtn);
             ctrlPanel.add(aiModelRow);
 
             aiProviderCombo.addActionListener(e -> syncAiProviderVisibility());
@@ -360,7 +545,7 @@ public class SettingsPanel {
             notesArea.setWrapStyleWord(true);
             JPanel notesPanel = new JPanel(new BorderLayout());
             notesPanel.setBorder(new TitledBorder("How It Works"));
-            notesPanel.add(new JScrollPane(notesArea), BorderLayout.CENTER);
+            notesPanel.add(Branding.watermarkInBox(new JScrollPane(notesArea)), BorderLayout.CENTER);
 
             aiTab.add(ctrlPanel,  BorderLayout.NORTH);
             aiTab.add(notesPanel, BorderLayout.CENTER);
@@ -400,7 +585,7 @@ public class SettingsPanel {
 
             JPanel configPanel = new JPanel(new BorderLayout(4, 4));
             configPanel.setBorder(new TitledBorder("Config Snippet"));
-            configPanel.add(new JScrollPane(mcpConfigArea), BorderLayout.CENTER);
+            configPanel.add(Branding.watermarkInBox(new JScrollPane(mcpConfigArea)), BorderLayout.CENTER);
 
             // Buttons sit inside configPanel.SOUTH — mirrors "Download Setup Guide" in notesPanel
             JPanel configBtnBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
@@ -446,7 +631,7 @@ public class SettingsPanel {
             notesPanel.setBorder(new TitledBorder("Setup & Troubleshooting Notes"));
             JScrollPane notesScroll = new JScrollPane(setupNotesArea);
             notesScroll.getVerticalScrollBar().setUnitIncrement(16);
-            notesPanel.add(notesScroll, BorderLayout.CENTER);
+            notesPanel.add(Branding.watermarkInBox(notesScroll), BorderLayout.CENTER);
 
             JPanel notesBtnBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
             JButton downloadNotesBtn = new JButton("Download Setup Guide\u2026");
@@ -644,13 +829,82 @@ public class SettingsPanel {
 
     private void syncAiProviderVisibility() {
         if (aiProviderCombo == null) return;
-        int sel = aiProviderCombo.getSelectedIndex();
-        // 0=Burp AI, 1=Anthropic, 2=OpenAI, 3=MCP (withMcp only)
-        boolean needKey      = sel == 1 || sel == 2;
-        boolean needEndpoint = sel == 2;
+        AiTriageProvider.Provider p = selectedProvider();
+        boolean needKey      = p != AiTriageProvider.Provider.BURP && p != AiTriageProvider.Provider.MCP;
+        boolean needEndpoint = p == AiTriageProvider.Provider.OPENAI_COMPATIBLE;
         if (aiKeyRow      != null) aiKeyRow.setVisible(needKey);
         if (aiEndpointRow != null) aiEndpointRow.setVisible(needEndpoint);
-        if (aiModelRow    != null) aiModelRow.setVisible(needEndpoint);
+        if (aiModelRow    != null) aiModelRow.setVisible(needKey);
+    }
+
+    private AiTriageProvider.Provider selectedProvider() {
+        int idx = aiProviderCombo == null ? -1 : aiProviderCombo.getSelectedIndex();
+        return (aiProviderMap != null && idx >= 0 && idx < aiProviderMap.length) ? aiProviderMap[idx] : AiTriageProvider.Provider.BURP;
+    }
+
+    /** The model chosen in the combo, or "latest". */
+    private String selectedModel() {
+        Object v = aiModelCombo == null ? null : aiModelCombo.getEditor().getItem();
+        String m = v == null ? "" : v.toString().trim();
+        return (m.isEmpty() || m.startsWith("Latest")) ? AiTriageProvider.Models.LATEST : m;
+    }
+
+    /** Fetches the provider's model list in the background and fills the combo (Latest first). */
+    private void refreshModelList(JButton btn) {
+        AiTriageProvider.Provider p = selectedProvider();
+        String key = aiApiKeyField == null ? "" : new String(aiApiKeyField.getPassword());
+        String endpoint = aiEndpointField == null ? "" : aiEndpointField.getText().trim();
+        String keep = selectedModel();
+        if (p == AiTriageProvider.Provider.BURP || p == AiTriageProvider.Provider.MCP) {
+            if (statusLabel != null) statusLabel.setText("This provider chooses its own model; nothing to list.");
+            return;
+        }
+        if (key.isBlank()) {
+            if (statusLabel != null) statusLabel.setText("Enter the API key first: the model list comes from the provider and needs it. "
+                    + "'Latest' works without a list (falls back to " + AiTriageProvider.Models.fallback(p) + ").");
+            return;
+        }
+        btn.setEnabled(false);
+        new Thread(() -> {
+            java.util.List<String> models = AiTriageProvider.Models.list(p, key, endpoint);
+            SwingUtilities.invokeLater(() -> {
+                btn.setEnabled(true);
+                aiModelCombo.removeAllItems();
+                aiModelCombo.addItem(MODEL_LATEST_LABEL);
+                for (String m : models) aiModelCombo.addItem(m);
+                aiModelCombo.setSelectedItem(keep.equals(AiTriageProvider.Models.LATEST) ? MODEL_LATEST_LABEL : keep);
+                if (statusLabel != null)
+                    statusLabel.setText(models.isEmpty() ? "Could not list models (check the key / endpoint); 'Latest' falls back to "
+                            + AiTriageProvider.Models.fallback(p) : models.size() + " model(s) available.");
+            });
+        }, "SecretSifter-ModelList").start();
+    }
+
+
+    /** Repaints the Validation tab from the current settings (selection + custom rules). */
+    private void refreshValidationUi() {
+        if (validationModel == null || validationCatalog == null) return;
+        validationEnabledIds = new java.util.HashSet<>(settings.getValidationEnabledIds());
+        for (int i = 0; i < validationCatalog.size() && i < validationModel.getRowCount(); i++)
+            validationModel.setValueAt(validationEnabledIds.contains(validationCatalog.get(i).id()), i, 0);
+        if (validationCustomArea != null)
+            validationCustomArea.setText(String.join("\n", settings.getValidationCustomRules()));
+        if (validationBaseUrlArea != null)
+            validationBaseUrlArea.setText(String.join("\n", settings.getValidationBaseUrls()));
+        if (liveValidationBox != null)
+            liveValidationBox.setSelected(settings.isLiveValidationEnabled());
+        refreshEndpointColumn();
+    }
+
+    /** Re-resolves the "Endpoint" column (column 4) from the current self-hosted base-URL overrides. */
+    private void refreshEndpointColumn() {
+        if (validationModel == null || validationCatalog == null || validationModel.getColumnCount() < 5) return;
+        java.util.Map<String, String> baseMap = settings.validationBaseUrlMap();
+        for (int i = 0; i < validationCatalog.size() && i < validationModel.getRowCount(); i++) {
+            String prov = validationCatalog.get(i).provider();
+            validationModel.setValueAt(
+                    com.secretscanner.core.ValidationEndpoints.resolve(prov, baseMap.get(prov)), i, 4);
+        }
     }
 
     private void onSave() {
@@ -663,19 +917,25 @@ public class SettingsPanel {
         settings.setCustomRulesEnabled(customRulesEnabledBox.isSelected());
         settings.setCustomRulesOnly(customRulesOnlyBox.isSelected());
 
-        if (aiProviderCombo != null) {
-            AiTriageProvider.Provider[] map = {
-                AiTriageProvider.Provider.BURP,
-                AiTriageProvider.Provider.ANTHROPIC,
-                AiTriageProvider.Provider.OPENAI,
-                AiTriageProvider.Provider.MCP
-            };
-            int idx = aiProviderCombo.getSelectedIndex();
-            if (idx >= 0 && idx < map.length) settings.setAiProvider(map[idx]);
+        if (validationModel != null) {
+            settings.setValidationEnabledIds(validationEnabledIds);
+            if (liveValidationBox != null) settings.setLiveValidationEnabled(liveValidationBox.isSelected());
+            java.util.List<String> vlines = new java.util.ArrayList<>();
+            for (String l : validationCustomArea.getText().split("\n")) if (!l.isBlank()) vlines.add(l.trim());
+            settings.setValidationCustomRules(vlines);
+            if (validationBaseUrlArea != null) {
+                java.util.List<String> blines = new java.util.ArrayList<>();
+                for (String l : validationBaseUrlArea.getText().split("\n")) if (!l.isBlank()) blines.add(l.trim());
+                settings.setValidationBaseUrls(blines);
+            }
+            refreshEndpointColumn();   // re-resolve endpoints with the new base URLs
         }
+
+
+        if (aiProviderCombo != null) settings.setAiProvider(selectedProvider());
         if (aiApiKeyField   != null) settings.setAiApiKey(new String(aiApiKeyField.getPassword()));
         if (aiEndpointField != null) settings.setAiEndpoint(aiEndpointField.getText().trim());
-        if (aiModelField    != null) settings.setAiModel(aiModelField.getText().trim());
+        if (aiModelCombo    != null) settings.setAiModel(selectedModel());
 
         if (withMcp && mcpEnabledBox != null) {
             boolean mcpWasEnabled = settings.isMcpEnabled();
@@ -1053,23 +1313,23 @@ public class SettingsPanel {
         if (cdnArea              != null) cdnArea.setText(String.join("\n", settings.getCdnBlocklist()));
         if (keyBlocklistArea  != null) keyBlocklistArea.setText(String.join("\n", settings.getKeyBlocklist()));
         if (keyAllowlistArea  != null) keyAllowlistArea.setText(String.join("\n", settings.getKeyAllowlist()));
+        refreshValidationUi();
         if (customRulesEnabledBox != null) customRulesEnabledBox.setSelected(settings.isCustomRulesEnabled());
         if (customRulesOnlyBox    != null) customRulesOnlyBox.setSelected(settings.isCustomRulesOnly());
         if (withMcp && mcpEnabledBox != null) mcpEnabledBox.setSelected(settings.isMcpEnabled());
         if (aiProviderCombo != null) {
-            int idx = switch (settings.getAiProvider()) {
-                case BURP      -> 0;
-                case ANTHROPIC -> 1;
-                case OPENAI    -> 2;
-                case MCP       -> withMcp ? 3 : 0;
-                default        -> 0;
-            };
+            int idx = 0;
+            for (int i = 0; aiProviderMap != null && i < aiProviderMap.length; i++)
+                if (aiProviderMap[i] == settings.getAiProvider()) idx = i;
             aiProviderCombo.setSelectedIndex(idx);
             syncAiProviderVisibility();
         }
         if (aiApiKeyField   != null) aiApiKeyField.setText(settings.getAiApiKey());
-        if (aiEndpointField != null) { String ep = settings.getAiEndpoint(); aiEndpointField.setText(ep.isBlank() ? "https://api.openai.com/v1/chat/completions" : ep); }
-        if (aiModelField    != null) { String m = settings.getAiModel(); aiModelField.setText(m.isBlank() ? "gpt-4o" : m); }
+        if (aiEndpointField != null) aiEndpointField.setText(settings.getAiEndpoint());
+        if (aiModelCombo    != null) {
+            String m = settings.getAiModel();
+            aiModelCombo.setSelectedItem(m.isBlank() || m.equalsIgnoreCase(AiTriageProvider.Models.LATEST) ? MODEL_LATEST_LABEL : m);
+        }
         if (customRulesArea != null) {
             List<String> rules = settings.getCustomRules();
             customRulesArea.setText(rules.isEmpty() ? CUSTOM_RULES_PLACEHOLDER : String.join("\n", rules));

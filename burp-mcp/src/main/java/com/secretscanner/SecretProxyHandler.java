@@ -13,8 +13,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Proxy-level response handler — fires for ALL traffic through Burp's proxy
@@ -49,18 +51,35 @@ public class SecretProxyHandler implements ProxyResponseHandler {
     /** Background thread pool — keeps proxy pipeline non-blocking. */
     private final ExecutorService executor;
 
+    /** Characters of response body waiting in the scan queue; caps memory under heavy traffic. */
+    private final AtomicLong queuedChars = new AtomicLong();
+    private static final long MAX_QUEUED_CHARS = 256L * 1024 * 1024;
+    private final AtomicLong skipped = new AtomicLong();
+
     public SecretProxyHandler(SecretScanner scanner, ScanSettings settings, MontoyaApi api) {
         this.scanner  = scanner;
         this.settings = settings;
         this.api      = api;
-        // Cached thread pool: spawns threads on demand so bulk-scan traffic (hundreds of
-        // requests routed through Burp proxy) never delays findings from browser-visited URLs.
-        // Idle threads expire after 60 s; all threads are daemon so they die with Burp.
-        this.executor = Executors.newCachedThreadPool(r -> {
-            Thread t = new Thread(r, "SecretSifter-ProxyScanner");
-            t.setDaemon(true);
-            return t;
-        });
+        // Fixed pool: enough threads to keep up with browsing and bulk-scan traffic, but bounded
+        // so a burst of large responses cannot spawn hundreds of scanning threads. The queue is
+        // bounded by total queued body size (MAX_QUEUED_CHARS), not by task count.
+        int threads = Math.max(2, Math.min(8, Runtime.getRuntime().availableProcessors()));
+        ThreadPoolExecutor pool = new ThreadPoolExecutor(threads, threads, 60, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(), r -> {
+                    Thread t = new Thread(r, "SecretSifter-ProxyScanner");
+                    t.setDaemon(true);
+                    return t;
+                });
+        pool.allowCoreThreadTimeOut(true);
+        this.executor = pool;
+    }
+
+    /** Logs the first skip and then every 100th, so a flood of skips cannot flood the log. */
+    private void logSkip(String why, String url) {
+        long n = skipped.incrementAndGet();
+        if (api != null && (n == 1 || n % 100 == 0))
+            api.logging().logToError("[OWASP SecretSifter] proxy scan skipped (" + why + ") for "
+                    + url.replaceFirst("[?#].*", "") + "; " + n + " skipped so far");
     }
 
     /** Called by the extension unloading handler to drain any in-flight proxy scan tasks. */
@@ -93,8 +112,21 @@ public class SecretProxyHandler implements ProxyResponseHandler {
         // on a recycled buffer returns an empty string, and passing a stale rr to
         // api.siteMap().add() causes Burp to silently drop the AuditIssue (or NPE internally),
         // permanently losing the finding (the deduplicator already claimed the key).
-        final String responseBody = interceptedResponse.bodyToString();
         final String responseCt   = interceptedResponse.headerValue("Content-Type");
+        if (ScanSettings.isBinaryMedia(responseCt)) {
+            return ProxyResponseReceivedAction.continueWith(interceptedResponse);
+        }
+        if (interceptedResponse.body().length() > ScanSettings.MAX_SCAN_BYTES) {
+            logSkip("body larger than " + (ScanSettings.MAX_SCAN_BYTES >> 20) + " MB", url);
+            return ProxyResponseReceivedAction.continueWith(interceptedResponse);
+        }
+        final String responseBody = interceptedResponse.bodyToString();
+        final long   bodyChars    = responseBody == null ? 0 : responseBody.length();
+        if (queuedChars.addAndGet(bodyChars) > MAX_QUEUED_CHARS) {
+            queuedChars.addAndGet(-bodyChars);
+            logSkip("scan queue full", url);
+            return ProxyResponseReceivedAction.continueWith(interceptedResponse);
+        }
 
         // Deep-copy the full raw response bytes (status-line + headers + body) NOW,
         // before continueWith() is returned, so the background thread holds an immutable
@@ -110,7 +142,8 @@ public class SecretProxyHandler implements ProxyResponseHandler {
                 : HttpRequestResponse.httpRequestResponse(req, interceptedResponse);
 
         // Submit scan to background thread — proxy pipeline is unblocked immediately.
-        executor.submit(() -> {
+        try {
+          executor.submit(() -> {
             try {
                 List<SecretFinding> findings = scanner.scanRequestResponse(rr, responseBody, responseCt);
                 if (!findings.isEmpty()) {
@@ -123,7 +156,7 @@ public class SecretProxyHandler implements ProxyResponseHandler {
                             if (SitemapDeduplicator.shouldAddProxy(group))
                                 api.siteMap().add(SecretFinding.toGroupedAuditIssue(group, rr));
                         } catch (Exception ex) {
-                            api.logging().logToError("[SecretSifter] siteMap.add failed for group: " + ex);
+                            api.logging().logToError("[OWASP SecretSifter] siteMap.add failed for group: " + ex);
                         }
                     }
 
@@ -141,9 +174,14 @@ public class SecretProxyHandler implements ProxyResponseHandler {
                 }
             } catch (Exception e) {
                 if (api != null)
-                    api.logging().logToError("[SecretSifter] ProxyHandler ERROR: " + e.toString());
+                    api.logging().logToError("[OWASP SecretSifter] ProxyHandler ERROR: " + e.toString());
+            } finally {
+                queuedChars.addAndGet(-bodyChars);
             }
-        });
+          });
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            queuedChars.addAndGet(-bodyChars);         // handler is shutting down
+        }
 
         return ProxyResponseReceivedAction.continueWith(interceptedResponse);
     }
