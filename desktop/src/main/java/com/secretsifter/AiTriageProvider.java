@@ -252,14 +252,23 @@ public interface AiTriageProvider {
 
     // ── Factory ──────────────────────────────────────────────────────────────
 
-    /** Desktop factory: direct-API providers only (no Burp AI, no MCP-triage bridge). */
+    /** Back-compat factory: direct-API providers only (MCP falls back to not-available). */
     static AiTriageProvider forSettings(ScanSettings s) {
+        return forSettings(s, null);
+    }
+
+    /**
+     * Desktop factory. Direct-API providers need a key; the MCP provider routes through the
+     * connected Claude client via the running {@link McpServer} — no API key required.
+     */
+    static AiTriageProvider forSettings(ScanSettings s, McpServer mcp) {
         Provider p = s.getAiProvider();
         switch (p) {
             case ANTHROPIC: return new AnthropicImpl(s.getAiApiKey(), s.getAiModel());
             case OPENAI: case GEMINI: case DEEPSEEK: case OPENAI_COMPATIBLE:
                 return new OpenAiCompatImpl(p, s.getAiApiKey(), s.getAiEndpoint(), s.getAiModel());
-            default:        return new NoAiImpl();   // BURP / MCP not available in the desktop app
+            case MCP:       return new McpImpl(mcp);
+            default:        return new NoAiImpl();
         }
     }
 
@@ -267,6 +276,28 @@ public interface AiTriageProvider {
     class NoAiImpl implements AiTriageProvider {
         @Override public boolean isAvailable() { return false; }
         @Override public TriageResult triage(SecretFinding f) { return TriageResult.noVerdict("AI provider not configured"); }
+    }
+
+    /**
+     * Cooperative triage over the MCP connection: no API key. The connected Claude client
+     * (Claude Code / Desktop) pulls the queued findings via secretsifter_get_triage_request,
+     * reasons over them, and returns verdicts via secretsifter_submit_triage_results.
+     * Batch-only — BulkScanPanel calls {@link #enqueueBatch} and waits on the future.
+     */
+    class McpImpl implements AiTriageProvider {
+        private final McpServer mcp;
+        McpImpl(McpServer mcp) { this.mcp = mcp; }
+
+        @Override public boolean isAvailable()   { return mcp != null && mcp.isMcpTriageAvailable(); }
+        @Override public boolean isMcpProvider() { return true; }
+
+        @Override public TriageResult triage(SecretFinding f) {
+            throw new UnsupportedOperationException("MCP provider is batch-only via enqueueBatch()");
+        }
+
+        public java.util.concurrent.CompletableFuture<List<TriageResult>> enqueueBatch(List<SecretFinding> findings) {
+            return mcp.enqueueTriage(findings);
+        }
     }
 
     // ── Models: list them from the provider, "Latest" picks the newest flagship ─────

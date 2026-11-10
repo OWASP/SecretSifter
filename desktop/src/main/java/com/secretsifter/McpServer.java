@@ -34,6 +34,39 @@ public class McpServer {
         return t;
     });
 
+    // ── Cooperative AI triage over MCP ───────────────────────────────────────
+    // When the user clicks "AI Triage All" with the "Claude via MCP (no key)"
+    // provider, BulkScanPanel queues the findings here and waits on the future.
+    // The connected Claude client calls secretsifter_get_triage_request, reasons
+    // over them, and calls secretsifter_submit_triage_results — which completes
+    // the future. No API key: the connected Claude IS the model.
+    private volatile CompletableFuture<List<AiTriageProvider.TriageResult>> pendingTriageFuture;
+    private volatile List<SecretFinding> pendingTriageFindings;
+
+    /** Queue findings for the connected Claude to triage; BulkScanPanel waits on the returned future. */
+    public CompletableFuture<List<AiTriageProvider.TriageResult>> enqueueTriage(List<SecretFinding> findings) {
+        CompletableFuture<List<AiTriageProvider.TriageResult>> future = new CompletableFuture<>();
+        cancelPendingTriage();   // a newer request supersedes any unanswered one
+        pendingTriageFuture   = future;
+        pendingTriageFindings = new ArrayList<>(findings);
+        if (logger != null) logger.logToOutput("[MCP] Triage request queued: " + findings.size()
+                + " findings — call secretsifter_get_triage_request");
+        return future;
+    }
+
+    /** Cancel any pending MCP triage request and release the waiting future. */
+    public void cancelPendingTriage() {
+        CompletableFuture<List<AiTriageProvider.TriageResult>> f = pendingTriageFuture;
+        pendingTriageFuture   = null;
+        pendingTriageFindings = null;
+        if (f != null && !f.isDone()) {
+            f.completeExceptionally(new CancellationException("triage cancelled"));
+            if (logger != null) logger.logToOutput("[MCP] Triage request cancelled");
+        }
+    }
+
+    public boolean isMcpTriageAvailable() { return isRunning(); }
+
     public McpServer(int port, String token, BulkScanPanel bulkPanel, ScanSettings settings,
                      LogManager logger, AppPrefs prefs) {
         this.port      = port;
@@ -235,7 +268,7 @@ public class McpServer {
     private JSONObject handleInit() {
         return new JSONObject()
             .put("protocolVersion", "2025-06-18")
-            .put("serverInfo", new JSONObject().put("name", "secretsifter-desktop").put("version", "1.8.0"))
+            .put("serverInfo", new JSONObject().put("name", "secretsifter-desktop").put("version", "1.8.1"))
             .put("capabilities", new JSONObject().put("tools", new JSONObject()));
     }
 
@@ -464,6 +497,27 @@ public class McpServer {
                     .put("file_path", prop("string", "Full path to the .har file")))
                 .put("required", new JSONArray(List.of("file_path")))));
 
+        // ── Cooperative AI triage (no API key: the connected Claude is the model) ──
+        tools.put(tool("secretsifter_get_triage_request",
+            "Return the pending AI triage request: a JSON array of findings queued by the " +
+            "'AI Triage All' button when the 'Claude via MCP (no key)' provider is selected. " +
+            "Returns a message if no request is pending. After analyzing, call " +
+            "secretsifter_submit_triage_results.",
+            emptySchema()));
+
+        tools.put(tool("secretsifter_submit_triage_results",
+            "Submit triage verdicts for the pending request. Pass a 'results' JSON array with exactly " +
+            "one object per finding (ids 1..N matching secretsifter_get_triage_request), each with " +
+            "'id', 'real' (true/false), 'severity', 'confidence', and 'reasoning'. SecretSifter then " +
+            "re-rates real findings and flags false positives as NOISE.",
+            new JSONObject().put("type", "object")
+                .put("properties", new JSONObject()
+                    .put("results", new JSONObject()
+                        .put("type", "array")
+                        .put("description", "One verdict object per finding; ids 1..N, each exactly once.")
+                        .put("items", new JSONObject().put("type", "object"))))
+                .put("required", new JSONArray(List.of("results")))));
+
         return new JSONObject().put("tools", tools);
     }
 
@@ -499,6 +553,8 @@ public class McpServer {
         if ("secretsifter_list_builtin_patterns".equals(name))     return doListBuiltinPatterns();
         if ("secretsifter_bulk_delete_findings".equals(name))      return doBulkDeleteFindings(args);
         if ("secretsifter_scan_har_file".equals(name))             return doScanHarFile(args);
+        if ("secretsifter_get_triage_request".equals(name))        return doGetTriageRequest();
+        if ("secretsifter_submit_triage_results".equals(name))     return doSubmitTriageResults(args);
         throw new RuntimeException("Unknown tool: " + name);
     }
 
@@ -880,6 +936,58 @@ public class McpServer {
             ex.getResponseBody().write(bytes);
         }
         ex.close();
+    }
+
+    // ── Cooperative AI triage tool handlers ──────────────────────────────────
+
+    private JSONObject doGetTriageRequest() {
+        List<SecretFinding> findings = pendingTriageFindings;
+        if (findings == null || findings.isEmpty())
+            return textContent("No pending triage request. In SecretSifter, select the "
+                    + "'Claude via MCP (no key)' provider in Settings → AI / MCP, then click 'AI Triage All' on the Scan tab.");
+        JSONArray arr = new JSONArray();
+        for (int i = 0; i < findings.size(); i++) {
+            SecretFinding f = findings.get(i);
+            JSONObject o = new JSONObject()
+                .put("id",         i + 1)
+                .put("rule",       f.ruleId() != null ? f.ruleId() : f.ruleName())
+                .put("key",        f.keyName() != null ? f.keyName() : "")
+                .put("value",      AiTriageProvider.describeValue(f.matchedValue()))
+                .put("url",        AiTriageProvider.urlWithoutQuery(f.sourceUrl()))
+                .put("severity",   f.severity())
+                .put("confidence", f.confidence());
+            String ctx = AiTriageProvider.safeContext(f);
+            if (!ctx.isEmpty()) o.put("context", ctx);
+            arr.put(o);
+        }
+        return textContent("Triage " + findings.size() + " findings. For each, set real=true/false, "
+                + "severity, confidence, reasoning.\n" + AiTriageProvider.RULES + AiTriageProvider.DATA_NOTICE
+                + "Then call secretsifter_submit_triage_results with a 'results' JSON array containing exactly one "
+                + "object per finding, ids 1.." + findings.size() + ".\n\n"
+                + "<<<FINDINGS\n" + arr.toString() + "\nFINDINGS>>>");
+    }
+
+    private JSONObject doSubmitTriageResults(JSONObject args) {
+        CompletableFuture<List<AiTriageProvider.TriageResult>> future = pendingTriageFuture;
+        if (future == null || future.isDone())
+            return textContent("No pending triage request to complete. Call secretsifter_get_triage_request first.");
+        if (!args.has("results"))
+            throw new RuntimeException("'results' array is required");
+        JSONArray arr = args.getJSONArray("results");
+        int count = pendingTriageFindings != null ? pendingTriageFindings.size() : arr.length();
+        // ids must be exactly 1..count, each once; otherwise nothing changes
+        // (a renumbered answer would apply verdicts to the wrong findings).
+        List<AiTriageProvider.TriageResult> results = AiTriageProvider.parseBatchJson(arr.toString(), count);
+        long usable = results.stream().filter(AiTriageProvider.TriageResult::hasVerdict).count();
+        if (usable == 0 && count > 0)
+            return textContent("Results not accepted: provide exactly one object per finding with ids 1.." + count
+                    + " and fields real (true/false) and severity. Nothing was changed; the request is still pending.");
+        pendingTriageFindings = null;
+        pendingTriageFuture   = null;
+        future.complete(results);
+        if (logger != null) logger.logToOutput("[MCP] Triage results submitted: " + results.size() + " findings processed.");
+        return textContent("Triage results submitted: " + results.size()
+                + " finding(s) processed. SecretSifter is updating the table.");
     }
 
     private static final List<String> SEV_ORDER = List.of("INFORMATION", "LOW", "MEDIUM", "HIGH");

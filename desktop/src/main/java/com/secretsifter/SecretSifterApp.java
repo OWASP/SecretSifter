@@ -95,6 +95,7 @@ public class SecretSifterApp {
             try { mcpPort = Integer.parseInt(mcpPortStr); } catch (NumberFormatException ignored) {}
         }
         McpServer mcpServer = new McpServer(mcpPort, mcpToken, bulkPanel, settings, logManager, prefs);
+        bulkPanel.setMcpServer(mcpServer);   // enables the keyless "Claude via MCP" triage path
         if (Boolean.TRUE.equals(prefs.getBoolean("mcp.enabled"))) {
             try { mcpServer.start(); } catch (Exception e) { logManager.logToError("MCP server failed to start: " + e.getMessage()); }
         }
@@ -158,15 +159,33 @@ public class SecretSifterApp {
             }
         });
 
-        // "AI-Powered" pill — visible on all tabs, sits left of the ⓘ button
-        JLabel aiLabel = new JLabel("⚡ AI-Powered") {
+        // "AI-Powered" pill — visible on all tabs, sits left of the ⓘ button.
+        // The lightning bolt is painted as a vector (the ⚡ emoji glyph isn't in
+        // the macOS UI font, so it was being silently dropped).
+        JLabel aiLabel = new JLabel("AI-Powered") {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                // pill background
                 g2.setColor(new Color(30, 60, 110, 200));
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
                 g2.setColor(new Color(60, 120, 210, 160));
                 g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
+                // lightning bolt, vector-drawn so it always renders
+                double bx = 9, bh = getHeight() * 0.62, bw = bh * 0.52;
+                double by = (getHeight() - bh) / 2.0;
+                double[][] pts = {
+                    {0.62, 0.00}, {0.10, 0.55}, {0.42, 0.55},
+                    {0.30, 1.00}, {0.92, 0.42}, {0.52, 0.42}
+                };
+                java.awt.geom.Path2D bolt = new java.awt.geom.Path2D.Double();
+                for (int i = 0; i < pts.length; i++) {
+                    double px = bx + pts[i][0] * bw, py = by + pts[i][1] * bh;
+                    if (i == 0) bolt.moveTo(px, py); else bolt.lineTo(px, py);
+                }
+                bolt.closePath();
+                g2.setColor(new Color(255, 214, 64)); // amber bolt
+                g2.fill(bolt);
                 g2.dispose();
                 super.paintComponent(g);
             }
@@ -175,6 +194,7 @@ public class SecretSifterApp {
         aiLabel.setForeground(new Color(130, 180, 255));
         aiLabel.setOpaque(false);
         aiLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        aiLabel.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 0)); // leave room for the bolt
         aiLabel.setToolTipText("AI-ready via MCP — connect Claude, Cursor, or any MCP client");
 
         glass.add(aiLabel);
@@ -187,7 +207,7 @@ public class SecretSifterApp {
             @Override public void componentResized(java.awt.event.ComponentEvent e) {
                 int btnW = 30, btnH = 28;
                 aboutTabBtn.setBounds(frame.getWidth() - btnW - 14, 6, btnW, btnH);
-                int pillW = 100, pillH = 22;
+                int pillW = 112, pillH = 22;
                 aiLabel.setBounds(frame.getWidth() - btnW - pillW - 22, 9, pillW, pillH);
             }
             @Override public void componentShown(java.awt.event.ComponentEvent e) {
@@ -208,6 +228,6 @@ public class SecretSifterApp {
         frame.setVisible(true);
         // Trigger initial positioning after the frame is visible
         aboutTabBtn.setBounds(frame.getWidth() - 44, 6, 30, 28);
-        aiLabel.setBounds(frame.getWidth() - 44 - 100 - 8, 9, 100, 22);
+        aiLabel.setBounds(frame.getWidth() - 44 - 112 - 8, 9, 112, 22);
     }
 }

@@ -518,14 +518,24 @@ public class SettingsPanel {
         // Row 1: provider + API key (drives the "AI Triage All" button on the Scan tab)
         JPanel aiKeyRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         aiKeyRow.add(new JLabel("AI Triage — Provider:"));
-        final String[] AI_LABELS = {"Claude (Anthropic)", "OpenAI", "Google Gemini", "DeepSeek", "OpenAI-compatible (custom endpoint)"};
+        final String[] AI_LABELS = {"Claude via MCP (no key)", "Claude (Anthropic)", "OpenAI", "Google Gemini", "DeepSeek", "OpenAI-compatible (custom endpoint)"};
         final AiTriageProvider.Provider[] AI_PROVIDERS = {
+                AiTriageProvider.Provider.MCP,
                 AiTriageProvider.Provider.ANTHROPIC, AiTriageProvider.Provider.OPENAI,
                 AiTriageProvider.Provider.GEMINI, AiTriageProvider.Provider.DEEPSEEK,
                 AiTriageProvider.Provider.OPENAI_COMPATIBLE };
         final JComboBox<String> aiProviderCombo = new JComboBox<>(AI_LABELS);
         for (int i = 0; i < AI_PROVIDERS.length; i++) if (AI_PROVIDERS[i] == settings.getAiProvider()) aiProviderCombo.setSelectedIndex(i);
-        aiProviderCombo.setToolTipText("Model backend used by 'AI Triage All' on the Scan tab.");
+        // Apply (and persist) the provider the moment it's picked — no separate save step needed.
+        // Previously the choice only took effect via the "Save AI Settings" button, which was easy
+        // to miss (users clicked the bottom "Save Settings" and the provider never applied).
+        aiProviderCombo.addActionListener(ev -> {
+            settings.setAiProvider(AI_PROVIDERS[Math.max(0, aiProviderCombo.getSelectedIndex())]);
+            settings.saveToPrefs(prefs);
+        });
+        aiProviderCombo.setToolTipText("<html>Backend used by 'AI Triage All' on the Scan tab.<br>"
+                + "<b>Claude via MCP (no key)</b> uses a connected Claude client (Claude Code / Desktop) over the<br>"
+                + "MCP server above — no API key needed. The other providers call their API directly and need a key.</html>");
         aiKeyRow.add(aiProviderCombo);
 
         aiKeyRow.add(new JLabel("   API Key:"));
@@ -947,7 +957,7 @@ public class SettingsPanel {
         String tok  = mcpServer.getToken();
         return
 "# SecretSifter Desktop — AI / MCP & REST API Setup Guide\n\n" +
-"**Version:** 1.8.0  \n" +
+"**Version:** 1.8.1  \n" +
 "**Transport:** HTTP (JSON-RPC 2.0)  \n" +
 "**Protocol:** MCP 2025-06-18  \n\n" +
 "---\n\n" +

@@ -96,6 +96,11 @@ public class BulkScanPanel {
     private JButton      aiTriageAllBtn;
     private final AtomicBoolean aiTriageRunning = new AtomicBoolean(false);
     private volatile ExecutorService aiExecutor;
+    /** Set by SecretSifterApp after construction; enables the keyless "Claude via MCP" triage path. */
+    private volatile McpServer mcpServer;
+    public void setMcpServer(McpServer s) { this.mcpServer = s; }
+    /** Modeless prompt dialog shown during MCP triage; auto-closed on completion. */
+    private volatile JDialog mcpPromptDialog;
     private JButton   startBtn;
     private JButton   stopBtn;
     private JButton   pauseBtn;
@@ -295,7 +300,7 @@ public class BulkScanPanel {
         leftSplit.setPreferredSize(new Dimension(310, 0));
 
         // ── Top: options bar ───────────────────────────────────────────────
-        JPanel optPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 4));
+        JPanel optPanel = new JPanel(new WrapLayout(FlowLayout.LEFT, 10, 4));
         optPanel.setBorder(new TitledBorder("Scan Options"));
 
         JLabel threadsLbl = new JLabel("Threads:");
@@ -2164,7 +2169,11 @@ public class BulkScanPanel {
     // =========================================================================
 
     private void onAiTriageAllClicked() {
-        if (aiTriageRunning.get()) { aiTriageRunning.set(false); return; }   // click again = cancel
+        if (aiTriageRunning.get()) {                       // click again = cancel
+            aiTriageRunning.set(false);
+            if (mcpServer != null) mcpServer.cancelPendingTriage();   // unblock an MCP wait
+            return;
+        }
         triageAllWithAi();
     }
 
@@ -2175,11 +2184,12 @@ public class BulkScanPanel {
      * Secret values are sent redacted. Findings with no usable verdict are left unchanged.
      */
     private void triageAllWithAi() {
-        AiTriageProvider provider = AiTriageProvider.forSettings(settings);
+        AiTriageProvider provider = AiTriageProvider.forSettings(settings, mcpServer);
         if (!provider.isAvailable()) {
-            JOptionPane.showMessageDialog(getPanel(),
-                    "AI triage is not configured.\nChoose a provider and enter an API key in Settings → AI / MCP.",
-                    "AI Triage", JOptionPane.WARNING_MESSAGE);
+            String msg = provider.isMcpProvider()
+                ? "AI triage via MCP needs the MCP server running.\nEnable it in Settings → AI / MCP (toggle 'Enable MCP Server')."
+                : "AI triage is not configured.\n\nEither:\n  • Choose a provider and enter an API key in Settings → AI / MCP, or\n  • Choose 'Claude via MCP (no key)' to use a connected Claude client — no key needed.";
+            JOptionPane.showMessageDialog(getPanel(), msg, "AI Triage", JOptionPane.WARNING_MESSAGE);
             return;
         }
         List<SecretFinding> snapshot;
@@ -2193,6 +2203,11 @@ public class BulkScanPanel {
             aiTriageAllBtn.setText("Cancel AI Triage");
             if (statusLabel != null) statusLabel.setText("AI triage: 0/" + total + "…");
         });
+        if (provider.isMcpProvider()) {                    // keyless cooperative path
+            final AiTriageProvider.McpImpl mcpProvider = (AiTriageProvider.McpImpl) provider;
+            aiExecutor.submit(() -> handleMcpTriage(mcpProvider, snapshot, total));
+            return;
+        }
         aiExecutor.submit(() -> {
             int done = 0, noVerdict = 0, noise = 0, failed = 0;
             String lastError = null;
@@ -2250,6 +2265,129 @@ public class BulkScanPanel {
                             "AI Triage", JOptionPane.WARNING_MESSAGE);
             });
         });
+    }
+
+    /**
+     * Keyless cooperative triage: queue the findings for the connected Claude (over MCP) and wait
+     * for it to submit verdicts via secretsifter_submit_triage_results. Applies results using the
+     * same {@link #updateFinding} path as the direct-API flow (real → severity; false positive → NOISE).
+     */
+    /** The prompt the user pastes into their MCP client (Claude Code / Desktop) to run the queued triage. */
+    static final String MCP_TRIAGE_PROMPT =
+            "Call the secretsifter_get_triage_request tool, analyze every finding it returns, then call "
+          + "secretsifter_submit_triage_results with one verdict object per finding (id, real true/false, "
+          + "severity, confidence, reasoning). Do both tool calls now.";
+
+    private void handleMcpTriage(AiTriageProvider.McpImpl provider, List<SecretFinding> snapshot, int total) {
+        SwingUtilities.invokeLater(() -> {
+            if (statusLabel != null)
+                statusLabel.setText("Waiting for Claude… prompt copied to clipboard — paste it into your MCP client");
+            copyMcpTriagePromptAndPrompt(total);
+        });
+        try {
+            java.util.concurrent.CompletableFuture<List<AiTriageProvider.TriageResult>> future =
+                    provider.enqueueBatch(snapshot);
+            List<AiTriageProvider.TriageResult> results =
+                    future.get(10, java.util.concurrent.TimeUnit.MINUTES);
+            if (!aiTriageRunning.get()) return;            // cancelled while waiting
+            int noise = 0, noVerdict = 0;
+            for (int i = 0; i < Math.min(results.size(), snapshot.size()); i++) {
+                final SecretFinding f = snapshot.get(i);
+                AiTriageProvider.TriageResult r = results.get(i);
+                if (!r.hasVerdict()) { noVerdict++; continue; }
+                if (r.real()) {
+                    final String sev  = AiTriageProvider.deterministicSeverity(f, r.severity());
+                    final String conf = r.confidence();
+                    SwingUtilities.invokeLater(() -> {
+                        int mr; synchronized (tableFindings) { mr = tableFindings.indexOf(f); }
+                        if (mr >= 0) updateFinding(mr, sev, conf);
+                    });
+                } else {
+                    noise++;
+                    SwingUtilities.invokeLater(() -> {
+                        int mr; synchronized (tableFindings) { mr = tableFindings.indexOf(f); }
+                        if (mr >= 0) updateFinding(mr, null, "NOISE");
+                    });
+                }
+            }
+            final int fNoise = noise, fNoVerdict = noVerdict;
+            aiTriageRunning.set(false);
+            closeMcpPromptDialog();
+            SwingUtilities.invokeLater(() -> {
+                aiTriageAllBtn.setText("AI Triage All");
+                if (statusLabel != null)
+                    statusLabel.setText("MCP triage complete: " + total + " finding(s) triaged"
+                            + (fNoise > 0 ? "  |  " + fNoise + " flagged NOISE" : "")
+                            + (fNoVerdict > 0 ? "  |  " + fNoVerdict + " unchanged" : "") + ".");
+            });
+        } catch (java.util.concurrent.TimeoutException e) {
+            aiTriageRunning.set(false);
+            if (mcpServer != null) mcpServer.cancelPendingTriage();
+            closeMcpPromptDialog();
+            SwingUtilities.invokeLater(() -> {
+                aiTriageAllBtn.setText("AI Triage All");
+                if (statusLabel != null) statusLabel.setText("MCP triage timed out — Claude did not respond within 10 minutes.");
+            });
+        } catch (Exception e) {
+            aiTriageRunning.set(false);
+            closeMcpPromptDialog();
+            Throwable cause = e.getCause();
+            boolean cancelled = e instanceof java.util.concurrent.CancellationException
+                    || cause instanceof java.util.concurrent.CancellationException;
+            SwingUtilities.invokeLater(() -> {
+                aiTriageAllBtn.setText("AI Triage All");
+                if (!cancelled && statusLabel != null) statusLabel.setText("MCP triage error: " + e.getMessage());
+                else if (statusLabel != null) statusLabel.setText("AI triage cancelled.");
+            });
+        }
+    }
+
+    /**
+     * Copy the MCP triage prompt to the clipboard and show it in a MODELESS dialog (so it does not block
+     * the EDT — the table must stay live to apply verdicts when Claude submits). Auto-closed on completion.
+     */
+    private void copyMcpTriagePromptAndPrompt(int total) {
+        copyToClipboard(MCP_TRIAGE_PROMPT);
+        if (mcpPromptDialog != null) { mcpPromptDialog.dispose(); mcpPromptDialog = null; }
+        Window owner = SwingUtilities.getWindowAncestor(getPanel());
+        JDialog d = new JDialog(owner, "AI Triage via MCP", Dialog.ModalityType.MODELESS);
+        JTextArea ta = new JTextArea(MCP_TRIAGE_PROMPT, 4, 48);
+        ta.setLineWrap(true); ta.setWrapStyleWord(true); ta.setEditable(false);
+        ta.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
+        JPanel body = new JPanel(new BorderLayout(0, 8));
+        body.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        body.add(new JLabel("<html><b>" + total + " finding(s) queued for triage.</b><br>"
+                + "The prompt below is <b>copied to your clipboard</b> — switch to your MCP client<br>"
+                + "(Claude Code / Desktop) and paste it to run the triage.<br>"
+                + "Verdicts flow back into this table automatically; this window closes when done.</html>"),
+                BorderLayout.NORTH);
+        body.add(new JScrollPane(ta), BorderLayout.CENTER);
+        JButton copyAgain = new JButton("Copy prompt again");
+        copyAgain.addActionListener(e -> copyToClipboard(MCP_TRIAGE_PROMPT));
+        JButton close = new JButton("Close");
+        close.addActionListener(e -> d.dispose());
+        JPanel btns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        btns.add(copyAgain); btns.add(close);
+        body.add(btns, BorderLayout.SOUTH);
+        d.setContentPane(body);
+        d.pack();
+        d.setLocationRelativeTo(getPanel());
+        d.setVisible(true);
+        mcpPromptDialog = d;
+    }
+
+    /** Close the MCP prompt dialog if it is open (called when triage finishes, is cancelled, or times out). */
+    private void closeMcpPromptDialog() {
+        SwingUtilities.invokeLater(() -> {
+            if (mcpPromptDialog != null) { mcpPromptDialog.dispose(); mcpPromptDialog = null; }
+        });
+    }
+
+    private static void copyToClipboard(String s) {
+        try {
+            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard()
+                    .setContents(new java.awt.datatransfer.StringSelection(s), null);
+        } catch (Exception ignore) { /* headless / no clipboard */ }
     }
 
     /** Sort key for the Issue ID column: reorders SS-MMDDYY-XXXXXX to YY MMDD XXXXXX so sort is chronological. */
