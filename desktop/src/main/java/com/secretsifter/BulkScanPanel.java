@@ -31,8 +31,9 @@ public class BulkScanPanel {
 
     // ── Columns ───────────────────────────────────────────────────────────────
     private static final String[] COLS = {
-        "#", "Severity", "Confidence", "Validation", "Rule ID", "Key", "Value", "URL", "Target", "Line", "Context", ""
+        "Issue ID", "Severity", "Confidence", "Validation", "Rule ID", "Key", "Value", "URL", "Target", "Line", "Context", ""
     };
+    // Issue ID: permanent per secret (SS-102426-7K4M2Q), the same in every scan; see core.IssueRegistry.
     private static final int COL_SEV    = 1;
     private static final int COL_CONF   = 2;
     private static final int COL_VALID  = 3;
@@ -417,13 +418,11 @@ public class BulkScanPanel {
         // Custom severity order: CRITICAL > HIGH > MEDIUM > LOW > INFORMATION
         Comparator<Object> sevOrder = (a, b) -> sevRank(String.valueOf(b)) - sevRank(String.valueOf(a));
         rowSorter.setComparator(COL_SEV, sevOrder);
-        // Numeric sort for # column
-        rowSorter.setComparator(0, Comparator.comparingInt(o -> {
-            try { return Integer.parseInt(String.valueOf(o)); } catch (Exception ex) { return 0; }
-        }));
+        // Issue ID column sorts by issue date+serial (SS-MMDDYY-XXXXXX)
+        rowSorter.setComparator(0, Comparator.comparing(o -> issueIdSortKey(String.valueOf(o))));
         resultsTable.setRowSorter(rowSorter);
 
-        int[] widths = { 35, 65, 75, 90, 130, 130, 220, 220, 180, 45, 200, 28 };
+        int[] widths = { 140, 65, 75, 90, 130, 130, 220, 220, 180, 45, 200, 28 };
         for (int i = 0; i < widths.length && i < resultsTable.getColumnCount(); i++) {
             resultsTable.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
         }
@@ -512,10 +511,6 @@ public class BulkScanPanel {
                         tableModel.removeRow(modelRow);
                         synchronized (tableFindings) {
                             if (modelRow < tableFindings.size()) tableFindings.remove(modelRow);
-                        }
-                        // Renumber remaining rows in model order
-                        for (int r = modelRow; r < tableModel.getRowCount(); r++) {
-                            tableModel.setValueAt(r + 1, r, 0);
                         }
                         updateCountBadges();
                     }
@@ -1152,8 +1147,6 @@ public class BulkScanPanel {
         SwingUtilities.invokeLater(() -> {
             if (modelIndex < tableModel.getRowCount()) {
                 tableModel.removeRow(modelIndex);
-                for (int r = modelIndex; r < tableModel.getRowCount(); r++)
-                    tableModel.setValueAt(r + 1, r, 0);
             }
         });
         return true;
@@ -2130,9 +2123,8 @@ public class BulkScanPanel {
         if (settings.isValidationEnabled())
             f = ValidationRunner.validate(f, settings, System.currentTimeMillis());
         tableFindings.add(f);
-        int row = tableModel.getRowCount() + 1;
         tableModel.addRow(new Object[]{
-                row,
+                f.issueId(),
                 f.severity(),
                 f.confidence(),
                 validationLabel(f),
@@ -2155,6 +2147,13 @@ public class BulkScanPanel {
     // =========================================================================
     // Live key validation (opt-in). Mirrors the Burp MCP edition.
     // =========================================================================
+
+    /** Sort key for the Issue ID column: reorders SS-MMDDYY-XXXXXX to YY MMDD XXXXXX so sort is chronological. */
+    static String issueIdSortKey(String id) {
+        if (id != null && id.length() >= 16 && id.startsWith("SS-") && id.charAt(9) == '-')
+            return id.substring(7, 9) + id.substring(3, 7) + id.substring(9);
+        return id == null ? "" : id;
+    }
 
     static String validationLabel(SecretFinding f) {
         return switch (f.meta().validation()) {

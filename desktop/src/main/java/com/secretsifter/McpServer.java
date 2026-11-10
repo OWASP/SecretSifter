@@ -517,6 +517,8 @@ public class McpServer {
             if (targetFilter != null && !containsIgnoreCase(f.targetUrl() + f.sourceUrl(), targetFilter)) continue;
             arr.put(new JSONObject()
                 .put("index",      i)
+                .put("issueId",    f.issueId())
+                .put("fingerprint", f.fingerprint())
                 .put("ruleId",     f.ruleId())
                 .put("ruleName",   f.ruleName())
                 .put("keyName",    f.keyName())

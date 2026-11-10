@@ -62,7 +62,7 @@ public final class HtmlReportGenerator {
                 .append("\" data-domain=\"").append(esc(domain))
                 .append("\" data-rule=\"").append(esc(f.ruleId()))
                 .append("\">\n");
-            rows.append("  <td>").append(i + 1).append("</td>\n");
+            rows.append("  <td><code>").append(esc(f.issueId())).append("</code></td>\n");
             rows.append("  <td><span class=\"badge sev-").append(sevLower).append("\">")
                 .append(sev).append("</span></td>\n");
             rows.append("  <td><span class=\"badge conf-").append(confLower).append("\">")
@@ -92,6 +92,7 @@ public final class HtmlReportGenerator {
 
             // ── JSON entry (embedded for client-side export) ───────────────
             jsonArr.append("{")
+                .append("\"issueId\":\"").append(jsonEsc(f.issueId())).append("\",")
                 .append("\"severity\":\"").append(jsonEsc(f.severity())).append("\",")
                 .append("\"confidence\":\"").append(jsonEsc(f.confidence())).append("\",")
                 .append("\"ruleId\":\"").append(jsonEsc(f.ruleId())).append("\",")
@@ -501,7 +502,7 @@ code{background:#f4f4f4;padding:1px 5px;border-radius:3px;
 <table id="tbl">
 <thead>
 <tr>
-  <th onclick="sortBy(0)">#</th>
+  <th onclick="sortBy(0)">Issue ID</th>
   <th onclick="sortBy(1)">Severity</th>
   <th onclick="sortBy(2)">Confidence</th>
   <th onclick="sortBy(3)">Rule ID</th>
