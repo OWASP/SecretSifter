@@ -1,0 +1,294 @@
+// ProGuard plugin must be on the buildscript classpath before the plugins block
+buildscript {
+    repositories { mavenCentral() }
+    dependencies { classpath 'com.guardsquare:proguard-gradle:7.4.2' }
+}
+
+plugins {
+    id 'java'
+    id 'com.gradleup.shadow' version '8.3.5'
+}
+
+group   = 'com.secretsifter'
+version = '1.8.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.json:json:20231013'
+    implementation 'com.microsoft.playwright:playwright:1.45.0'
+    implementation 'com.formdev:flatlaf:3.4'
+    // Bouncy Castle — required for per-host cert generation in the built-in HTTPS MITM proxy
+    implementation 'org.bouncycastle:bcpkix-jdk18on:1.78.1'
+    // SnakeYAML — loads the built-in rule packs (rules/builtin-*.yaml) for the detection engine
+    implementation 'org.yaml:snakeyaml:2.7'
+}
+
+jar {
+    manifest { attributes 'Main-Class': 'com.secretsifter.SecretSifterApp' }
+}
+
+// ── Step 1: fat JAR ───────────────────────────────────────────────────────────
+shadowJar {
+    archiveBaseName.set('secretsifter')
+    archiveClassifier.set('')
+    archiveVersion.set(version)
+    manifest { attributes 'Main-Class': 'com.secretsifter.SecretSifterApp' }
+    mergeServiceFiles()
+}
+
+// ── Step 2: restore Playwright directory entries dropped by Shadow JAR ────────
+// Shadow JAR strips ZIP directory entries (entries ending with '/') when merging
+// JARs. Playwright's DriverJar.getDriverResourceURI() calls
+// ClassLoader.getResource("driver/<os>/package/") which returns null without
+// these directory entries, making browser mode fail entirely.
+task fixPlaywrightDirs(dependsOn: shadowJar) {
+    doLast {
+        def jarPath = "${buildDir}/libs/secretsifter-${version}.jar"
+        def script = """
+import zipfile, sys
+jar = sys.argv[1]
+dirs = [
+    'driver/', 'driver/mac/', 'driver/mac/package/',
+    'driver/mac-arm64/', 'driver/mac-arm64/package/',
+    'driver/linux/', 'driver/linux/package/',
+    'driver/win32_x64/', 'driver/win32_x64/package/',
+]
+with zipfile.ZipFile(jar, 'r') as z:
+    existing = set(z.namelist())
+missing = [d for d in dirs if d not in existing]
+if not missing:
+    print('Playwright directory entries OK')
+    sys.exit(0)
+with zipfile.ZipFile(jar, 'a', compression=zipfile.ZIP_STORED, allowZip64=True) as z:
+    for d in missing:
+        z.writestr(zipfile.ZipInfo(d), b'')
+print('Added ' + str(len(missing)) + ' Playwright directory entries: ' + ', '.join(missing))
+"""
+        def pb = new ProcessBuilder('python3' as String, '-c' as String, script as String, jarPath as String)
+        pb.redirectErrorStream(true)
+        def proc = pb.start()
+        println proc.inputStream.text.trim()
+        def code = proc.waitFor()
+        if (code != 0) throw new GradleException("fixPlaywrightDirs failed (exit ${code})")
+    }
+}
+
+// ── Step 2b: extract com.secretsifter.* classes to a small JAR ───────────────
+// ProGuard only processes these 36 classes. The full fat JAR is used as
+// -libraryjars so ProGuard can resolve type references, but it is never
+// re-written — this eliminates the Playwright Serialization init error.
+task extractSecretSifterClasses(dependsOn: fixPlaywrightDirs) {
+    doLast {
+        def fatJar = "${buildDir}/libs/secretsifter-${version}.jar"
+        def outJar = "${buildDir}/libs/secretsifter-src-classes.jar"
+        def script = """
+import zipfile, sys
+fat_jar, out_jar = sys.argv[1], sys.argv[2]
+pkg = 'com/secretsifter/'
+with zipfile.ZipFile(fat_jar, 'r') as fat, \\
+     zipfile.ZipFile(out_jar, 'w', zipfile.ZIP_DEFLATED) as out:
+    entries = [n for n in fat.namelist() if n.startswith(pkg)]
+    for name in entries:
+        out.writestr(name, fat.read(name))
+print('Extracted ' + str(len(entries)) + ' SecretSifter entries to input JAR')
+"""
+        def pb = new ProcessBuilder('python3' as String, '-c' as String, script as String, fatJar as String, outJar as String)
+        pb.redirectErrorStream(true)
+        def proc = pb.start()
+        println proc.inputStream.text.trim()
+        if (proc.waitFor() != 0) throw new GradleException("extractSecretSifterClasses failed")
+    }
+}
+
+// ── Step 2c: obfuscate com.secretsifter.* with ProGuard ──────────────────────
+// input  = secretsifter-src-classes.jar  (only our 36 classes)
+// output = secretsifter-obf-classes.jar  (same classes, names scrambled)
+// library= fat JAR minus com/secretsifter/ (for type resolution only)
+// library= JDK jmod files
+task proguardJar(type: proguard.gradle.ProGuardTask, dependsOn: extractSecretSifterClasses) {
+    injars  "${buildDir}/libs/secretsifter-src-classes.jar"
+    outjars "${buildDir}/libs/secretsifter-obf-classes.jar"
+
+    // Fat JAR as library — exclude our own classes to avoid duplicate-class warnings
+    libraryjars(filter: '!com/secretsifter/**', "${buildDir}/libs/secretsifter-${version}.jar")
+
+    // JDK modules (Java 9+ — ProGuard auto-detects .jmod extension)
+    def javaHome = System.getProperty('java.home')
+    ['java.base', 'java.desktop', 'java.logging', 'java.prefs',
+     'java.xml', 'java.naming', 'java.management'].each { mod ->
+        def jmod = "${javaHome}/jmods/${mod}.jmod"
+        if (file(jmod).exists()) {
+            libraryjars(filter: '!**.jar,!module-info.class', jmod)
+        }
+    }
+
+    configuration file('proguard.pro')
+}
+
+// ── Step 2d: replace original classes in fat JAR with obfuscated ones ─────────
+task reinsertObfuscatedClasses(dependsOn: proguardJar) {
+    doLast {
+        def fatJar = "${buildDir}/libs/secretsifter-${version}.jar"
+        def obfJar = "${buildDir}/libs/secretsifter-obf-classes.jar"
+        def script = """
+import zipfile, sys, os
+fat_jar, obf_jar = sys.argv[1], sys.argv[2]
+pkg = 'com/secretsifter/'
+tmp_jar = fat_jar + '.tmp'
+
+# Read obfuscated classes
+obf = {}
+with zipfile.ZipFile(obf_jar, 'r') as z:
+    for name in z.namelist():
+        obf[name] = z.read(name)
+
+# Rebuild fat JAR: drop originals, insert obfuscated versions
+with zipfile.ZipFile(fat_jar, 'r') as src, \\
+     zipfile.ZipFile(tmp_jar, 'w', compression=zipfile.ZIP_DEFLATED, allowZip64=True) as dst:
+    for item in src.infolist():
+        if item.filename.startswith(pkg):
+            continue  # replaced below
+        dst.writestr(item, src.read(item.filename))
+    for name, data in obf.items():
+        dst.writestr(name, data)
+
+os.replace(tmp_jar, fat_jar)
+print('Re-inserted ' + str(len(obf)) + ' obfuscated classes into fat JAR')
+"""
+        def pb = new ProcessBuilder('python3' as String, '-c' as String, script as String, fatJar as String, obfJar as String)
+        pb.redirectErrorStream(true)
+        def proc = pb.start()
+        println proc.inputStream.text.trim()
+        if (proc.waitFor() != 0) throw new GradleException("reinsertObfuscatedClasses failed")
+    }
+}
+
+// ── Step 3: package as .app + DMG (or .exe on Windows) ───────────────────────
+task packageInstaller(dependsOn: reinsertObfuscatedClasses) {
+    doLast {
+        def jarPath     = "${buildDir}/libs/secretsifter-${version}.jar"
+        def jpackage    = "${System.getProperty('java.home')}/bin/jpackage"
+        def iconPath    = "${rootDir}/launcher/SecretSifter.icns"
+        def winIconPath = "${rootDir}/launcher/SecretSifter.ico"
+        def bgPath      = "${rootDir}/launcher/dmg-background.png"
+        def outputDir   = "${buildDir}/installer"
+        def appImageDir = "${buildDir}/app-image"
+        def stagingDir  = "${buildDir}/dmg-staging"
+        def os          = System.getProperty('os.name').toLowerCase()
+
+        def runBash = { String script ->
+            def pb = new ProcessBuilder(['bash', '-c', script])
+            pb.redirectErrorStream(true)
+            def proc = pb.start()
+            def out = proc.inputStream.text
+            def code = proc.waitFor()
+            if (out.trim()) println out.trim()
+            if (code != 0) throw new GradleException("Script failed (exit ${code}):\n${script}")
+        }
+
+        runBash("rm -rf '${outputDir}' && mkdir -p '${outputDir}'")
+
+        if (os.contains('mac')) {
+            // ── 3a: build .app via jpackage ───────────────────────────────────
+            runBash("rm -rf '${appImageDir}'")
+            runBash("""
+                '${jpackage}' \\
+                    --input        '${buildDir}/libs' \\
+                    --main-jar     secretsifter-${version}.jar \\
+                    --main-class   com.secretsifter.SecretSifterApp \\
+                    --name         SecretSifter \\
+                    --app-version  ${version} \\
+                    --vendor       'Hemanth Gorijala' \\
+                    --copyright    'Copyright (c) 2026 OWASP SecretSifter — MIT License' \\
+                    --description  'SecretSifter \u2014 AI-Powered Secrets Scanner' \\
+                    --type         app-image \\
+                    --dest         '${appImageDir}' \\
+                    --icon         '${iconPath}' \\
+                    --java-options '-Xmx512m' \\
+                    --java-options '-Xdock:name=SecretSifter' \\
+                    --java-options '-Xdock:icon=\$APPDIR/../Resources/SecretSifter.icns' \\
+                    --java-options '-Dapple.awt.application.name=SecretSifter' \\
+                    --java-options '-Dawt.useSystemAAFontSettings=on' \\
+                    --java-options '-Dswing.aatext=true' \\
+                    --java-options '-Dapple.laf.useScreenMenuBar=true'
+            """)
+
+            // ── 3b: stage for DMG — app + LICENSE alongside (not inside the bundle) ───
+            // NOTE: do NOT copy any file into the .app after jpackage signs it —
+            // that breaks the sealed resource hash and causes Gatekeeper to report
+            // the app as "damaged".  Put the license next to the .app in the DMG.
+            runBash("rm -rf '${stagingDir}' && mkdir -p '${stagingDir}'")
+            runBash("cp -a '${appImageDir}/SecretSifter.app' '${stagingDir}/SecretSifter.app'")
+            def licenseFile = file("${rootDir}/LICENSE.txt")
+            if (licenseFile.exists()) {
+                java.nio.file.Files.copy(licenseFile.toPath(),
+                    new File(stagingDir as String, "LICENSE.txt").toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            }
+
+            // ── 3d: build DMG with background + clean layout ──────────────────
+            def dmgPath  = "${outputDir}/SecretSifter-${version}.dmg"
+            def bgFlag   = file(bgPath).exists()   ? "--background '${bgPath}'"   : ""
+            def iconFlag = file(iconPath).exists() ? "--volicon    '${iconPath}'" : ""
+            runBash("""
+                set -e
+                rm -f '${dmgPath}'
+                create-dmg \\
+                    --volname        'SecretSifter ${version}' \\
+                    --window-pos     200 120 \\
+                    --window-size    660 420 \\
+                    --icon-size      120 \\
+                    --icon           'SecretSifter.app' 160 210 \\
+                    --app-drop-link  480 210 \\
+                    --hide-extension 'SecretSifter.app' \\
+                    --no-internet-enable \\
+                    ${bgFlag} \\
+                    ${iconFlag} \\
+                    '${dmgPath}' \\
+                    '${stagingDir}'
+            """)
+            // ── 3e: stamp DMG file icon in Finder (sips + Rez + SetFile) ─────
+            runBash("""
+                set -e
+                TMPRSRC=\$(mktemp /tmp/dmg_icon_XXXX.rsrc)
+                sips -i '${iconPath}' > /dev/null
+                DeRez -only icns '${iconPath}' > "\$TMPRSRC"
+                Rez -append "\$TMPRSRC" -o '${dmgPath}'
+                SetFile -a C '${dmgPath}'
+                rm -f "\$TMPRSRC"
+                echo '✅  DMG Finder icon stamped'
+            """)
+            println "✅  macOS DMG: ${dmgPath}"
+
+        } else if (os.contains('win')) {
+            def winIconFlag = file(winIconPath).exists() ? "--icon '${winIconPath}'" : ""
+            runBash("""
+                '${jpackage}' \\
+                    --input        '${buildDir}/libs' \\
+                    --main-jar     secretsifter-${version}.jar \\
+                    --main-class   com.secretsifter.SecretSifterApp \\
+                    --name         SecretSifter \\
+                    --app-version  ${version} \\
+                    --vendor       'Hemanth Gorijala' \\
+                    --copyright    'Copyright (c) 2026 OWASP SecretSifter — MIT License' \\
+                    --description  'SecretSifter \u2014 AI-Powered Secrets Scanner' \\
+                    --dest         '${outputDir}' \\
+                    --java-options '-Xmx512m' \\
+                    --type         exe \\
+                    ${winIconFlag}
+            """)
+            println "✅  Windows EXE: ${outputDir}/SecretSifter-${version}.exe"
+
+        } else {
+            println "⚠️  Unsupported OS: ${os}"
+        }
+    }
+}

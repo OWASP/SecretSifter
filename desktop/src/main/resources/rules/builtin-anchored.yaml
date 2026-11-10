@@ -1,0 +1,1884 @@
+# SecretSifter built-in rules. Format-anchored vendor tokens (distinctive prefix or structure).
+# Order is significant: rules are evaluated in file order.
+# Schema: see com.secretscanner.rules.RuleLoader.
+version: 1
+rules:
+  - id: 'GITHUB_PAT_001'
+    name: 'GitHub PAT (Classic)'
+    key: 'github_pat_classic'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bghp_[A-Za-z0-9]{36}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'GitHub'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'GITHUB_PAT_002'
+    name: 'GitHub OAuth Token'
+    key: 'github_oauth_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bgho_[A-Za-z0-9]{36}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'GitHub'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'GITHUB_PAT_003'
+    name: 'GitHub Actions Token'
+    key: 'github_actions_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bghs_[A-Za-z0-9]{36}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'GitHub'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'GITHUB_PAT_004'
+    name: 'GitHub Refresh Token'
+    key: 'github_refresh_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bghr_(?:[A-Za-z0-9]{36}|[A-Za-z0-9]{76})\b'
+    source: secretsifter
+    license: MIT
+    provider: 'GitHub'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'GITHUB_PAT_005'
+    name: 'GitHub Fine-Grained PAT'
+    key: 'github_fine_pat'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bgithub_pat_[A-Za-z0-9_]{82}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'GitHub'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'GITHUB_PAT_006'
+    name: 'GitHub User-to-Server Token'
+    key: 'github_user_server_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bghu_[A-Za-z0-9]{36}\b'
+    source: betterleaks
+    license: MIT
+    provider: 'GitHub'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'GITLAB_PAT_001'
+    name: 'GitLab Personal Access Token'
+    key: 'gitlab_pat'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bglpat-[A-Za-z0-9_\-]{20,300}(?:\.[0-9a-z]{2}\.?[0-9a-z]{7,9})?(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'GitLab'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'GITLAB_PAT_002'
+    name: 'GitLab Deploy Token'
+    key: 'gitlab_deploy_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bgldt-[A-Za-z0-9\-_]{20}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'GitLab'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'GITLAB_PAT_003'
+    name: 'GitLab Runner / Feed / Trigger / Job Token'
+    key: 'gitlab_other_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\b(?:glrt|glft|glffct|glimt|glsoat|glagent|gloas)-[A-Za-z0-9_\-]{20,64}(?![A-Za-z0-9_\-])|\bglptt-[0-9a-f]{40}\b|\bglcbt-[0-9a-zA-Z]{1,5}_[0-9a-zA-Z_\-]{20}(?![A-Za-z0-9_\-])'
+    source: betterleaks
+    license: MIT
+    provider: 'GitLab'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'NPM_TOKEN_001'
+    name: 'npm Access Token'
+    key: 'npm_access_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bnpm_[A-Za-z0-9]{36}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'npm'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'SLACK_TOKEN_001'
+    name: 'Slack Bot Token'
+    key: 'slack_bot_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bxoxb-[0-9]{8,14}-(?:[0-9]{10,13}-)?[A-Za-z0-9]{18,34}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Slack'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'SLACK_TOKEN_002'
+    name: 'Slack User Token'
+    key: 'slack_user_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bxoxp-[0-9]{10,13}-[0-9]{10,13}-[0-9]{10,13}-[A-Za-z0-9]{32}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Slack'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'SLACK_TOKEN_003'
+    name: 'Slack App Token'
+    key: 'slack_app_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bxapp-\d-[A-Z0-9]+-\d+-[a-z0-9]+\b'
+    license: MIT
+    source: betterleaks
+    provider: 'Slack'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'SLACK_TOKEN_004'
+    name: 'Slack Refresh / Config Token'
+    key: 'slack_config_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bxoxe(?:\.xox[bp])?-\d-[A-Za-z0-9]{140,180}\b'
+    license: MIT
+    source: betterleaks
+    provider: 'Slack'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'STRIPE_KEY_001'
+    name: 'Stripe Secret Key (Live)'
+    key: 'stripe_secret_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bsk_live_[A-Za-z0-9]{24,200}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Stripe'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'STRIPE_KEY_002'
+    name: 'Stripe Secret Key (Test)'
+    key: 'stripe_test_key'
+    kind: anchored
+    severity: LOW
+    pattern: '\bsk_test_[A-Za-z0-9]{24,200}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Stripe'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'STRIPE_KEY_003'
+    name: 'Stripe Restricted Key'
+    key: 'stripe_restricted_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\brk_live_[A-Za-z0-9]{24,200}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Stripe'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'SENDGRID_KEY_001'
+    name: 'SendGrid API Key'
+    key: 'sendgrid_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bSG\.[A-Za-z0-9\-_]{22}\.[A-Za-z0-9\-_]{43}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'SendGrid'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'TWILIO_SID_001'
+    name: 'Twilio Account SID'
+    key: 'twilio_account_sid'
+    kind: anchored
+    severity: LOW
+    pattern: '\b(?:AC|SK|FO|FW|AT)[a-f0-9]{32}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Twilio'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'OPENAI_KEY_001'
+    name: 'OpenAI API Key'
+    key: 'openai_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bsk-[A-Za-z0-9]{48}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'OpenAI'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'OPENAI_KEY_002'
+    name: 'OpenAI Project / Service Account / Admin Key'
+    key: 'openai_project_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bsk-(?:proj|svcacct|admin)-[A-Za-z0-9_\-]{20,250}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'OpenAI'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'OPENROUTER_KEY_001'
+    name: 'OpenRouter API Key'
+    key: 'openrouter_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bsk-or-v1-[0-9a-f]{64}\b'
+    source: betterleaks
+    license: MIT
+    provider: 'OpenRouter'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'PERPLEXITY_KEY_001'
+    name: 'Perplexity API Key'
+    key: 'perplexity_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bpplx-[A-Za-z0-9]{48}\b'
+    source: betterleaks
+    license: MIT
+    provider: 'Perplexity'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'NVIDIA_KEY_001'
+    name: 'NVIDIA API Key'
+    key: 'nvidia_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bnvapi-[A-Za-z0-9_\-]{60,70}(?![A-Za-z0-9_\-])'
+    source: betterleaks
+    license: MIT
+    provider: 'NVIDIA'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'HF_KEY_002'
+    name: 'Hugging Face Org API Token'
+    key: 'huggingface_org_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bapi_org_[A-Za-z]{34}\b'
+    source: betterleaks
+    license: MIT
+    provider: 'Hugging Face'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'POSTHOG_KEY_001'
+    name: 'PostHog Personal API Key'
+    key: 'posthog_personal_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bphx_[A-Za-z0-9_\-]{41,49}(?![A-Za-z0-9_\-])'
+    source: betterleaks
+    license: MIT
+    provider: 'PostHog'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'POSTHOG_KEY_002'
+    name: 'PostHog Project Key (public)'
+    key: 'posthog_project_key'
+    kind: anchored
+    severity: INFORMATION
+    pattern: '\bphc_[A-Za-z0-9_\-]{41,44}(?![A-Za-z0-9_\-])'
+    source: betterleaks
+    license: MIT
+    provider: 'PostHog'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'RESEND_KEY_001'
+    name: 'Resend API Key'
+    key: 'resend_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bre_[1-9A-HJ-NP-Za-km-z]{8}_[1-9A-HJ-NP-Za-km-z]{24}\b'
+    source: betterleaks
+    license: MIT
+    provider: 'Resend'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'MAILERSEND_KEY_001'
+    name: 'MailerSend API Token'
+    key: 'mailersend_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bmlsn\.[A-Za-z0-9]{30,100}\b'
+    source: betterleaks
+    license: MIT
+    provider: 'MailerSend'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'DOCKERHUB_KEY_001'
+    name: 'Docker Hub Access Token'
+    key: 'dockerhub_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bdckr_(?:pat|oat)_[A-Za-z0-9_\-]{27,32}(?![A-Za-z0-9_\-])'
+    source: betterleaks
+    license: MIT
+    provider: 'Docker Hub'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'NEON_KEY_001'
+    name: 'Neon API Key'
+    key: 'neon_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bnapi_[A-Za-z0-9]{64}\b'
+    source: betterleaks
+    license: MIT
+    provider: 'Neon'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'HEROKU_KEY_002'
+    name: 'Heroku API Key (v2)'
+    key: 'heroku_api_key_v2'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bHRKU-AA[0-9A-Za-z_\-]{58}(?![A-Za-z0-9_\-])'
+    source: betterleaks
+    license: MIT
+    provider: 'Heroku'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'SEGMENT_KEY_001'
+    name: 'Segment Public API Token'
+    key: 'segment_api_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bsgp_[A-Za-z0-9]{64}\b'
+    source: betterleaks
+    license: MIT
+    provider: 'Segment'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'VERCEL_KEY_002'
+    name: 'Vercel Token'
+    key: 'vercel_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bv(?:cp|ci|ca|cr|ck)_[A-Za-z0-9_\-]{56}(?![A-Za-z0-9_\-])'
+    source: betterleaks
+    license: MIT
+    provider: 'Vercel'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'ELASTIC_KEY_002'
+    name: 'Elastic Cloud API Key'
+    key: 'elastic_cloud_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bessu_[A-Za-z0-9_\-]{60,200}={0,2}'
+    source: betterleaks
+    license: MIT
+    provider: 'Elastic'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'AWS_KEY_003'
+    name: 'AWS Bedrock API Key (long-lived)'
+    key: 'aws_bedrock_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bABSK[A-Za-z0-9+/]{109,269}={0,2}'
+    source: betterleaks
+    license: MIT
+    provider: 'AWS'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'FACEBOOK_KEY_001'
+    name: 'Facebook Page Access Token'
+    key: 'facebook_page_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bEAA[MC][A-Za-z0-9]{100,}\b'
+    source: betterleaks
+    license: MIT
+    provider: 'Meta'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'SLACK_TOKEN_006'
+    name: 'Slack Session Token (xoxc)'
+    key: 'slack_session_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bxoxc-\d{9,15}-\d{9,15}-\d{9,15}-[a-f0-9]{64}\b'
+    source: betterleaks
+    license: MIT
+    provider: 'Slack'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'PLAID_KEY_001'
+    name: 'Plaid Access Token'
+    key: 'plaid_access_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\baccess-(?:sandbox|development|production)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b'
+    source: betterleaks
+    license: MIT
+    provider: 'Plaid'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'AZURE_AD_KEY_001'
+    name: 'Azure AD Client Secret'
+    key: 'azure_ad_client_secret'
+    kind: anchored
+    severity: HIGH
+    pattern: '(?<![A-Za-z0-9_~.])[A-Za-z0-9_~.]{3}\dQ~[A-Za-z0-9_~.\-]{31,34}(?![A-Za-z0-9_~.\-])'
+    source: betterleaks
+    license: MIT
+    provider: 'Microsoft Entra ID'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'ANTHROPIC_KEY_001'
+    name: 'Anthropic API / Admin Key'
+    key: 'anthropic_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bsk-ant-(?:api|admin)\d{2}-[A-Za-z0-9_\-]{80,200}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'Anthropic'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'SHOPIFY_KEY_001'
+    name: 'Shopify Access / Private App Token'
+    key: 'shopify_access_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bshp(?:at|pa)_[a-fA-F0-9]{32}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Shopify'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'SHOPIFY_KEY_002'
+    name: 'Shopify Shared Secret'
+    key: 'shopify_shared_secret'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bshpss_[a-fA-F0-9]{32}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Shopify'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'SHOPIFY_KEY_003'
+    name: 'Shopify Custom App Token'
+    key: 'shopify_custom_app'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bshpca_[a-fA-F0-9]{32}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Shopify'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'HUBSPOT_KEY_001'
+    name: 'HubSpot Private App Token'
+    key: 'hubspot_private_app'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bpat-(?:na|eu|ap)\d-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'HubSpot'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'MAILCHIMP_KEY_001'
+    name: 'Mailchimp API Key'
+    key: 'mailchimp_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\b[a-f0-9]{32}-us\d{1,2}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Mailchimp'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'DATABRICKS_KEY_001'
+    name: 'Databricks API Token'
+    key: 'databricks_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bdapi[a-f0-9]{32}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Databricks'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'GOOGLE_KEY_001'
+    name: 'Google API Key'
+    key: 'google_api_key'
+    kind: anchored
+    severity: MEDIUM
+    pattern: '\bAIza[0-9A-Za-z_\-]{35}(?![0-9A-Za-z_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'Google'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Covers all IAM principal key ID prefixes: AKIA (user), ASIA (session), AROA (role), AIDA (group)
+  - id: 'AWS_KEY_001'
+    name: 'AWS Access Key ID'
+    key: 'aws_access_key_id'
+    kind: anchored
+    severity: HIGH
+    pattern: '\b(?:A3T[A-Z0-9]|AKIA|ASIA|ABIA|ACCA)[A-Z2-7]{16}\b'
+    license: MIT
+    source: betterleaks
+    provider: 'AWS'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'PEM_PRIVKEY_001'
+    name: 'PEM Private Key'
+    key: 'pem_private_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+|ENCRYPTED\s+)?PRIVATE\s+KEY-----(?:\r?\n|\\n)(?:Proc-Type:[^\r\n\\]{1,80}(?:\r?\n|\\n)DEK-Info:[^\r\n\\]{1,120}(?:\r?\n|\\n)(?:\r?\n|\\n)?)?(?:[A-Za-z0-9+/=]{10,76}(?:\r?\n|\\n))+|-----BEGIN PGP PRIVATE KEY BLOCK-----'
+    flags: [CASE_INSENSITIVE]
+    source: secretsifter
+    license: MIT
+    provider: 'Generic (private key)'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # HashiCorp Vault service token (hvs. + 90+ base62url chars)
+  - id: 'VAULT_TOKEN_001'
+    name: 'HashiCorp Vault Service / Batch Token'
+    key: 'vault_service_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bhv[sb]\.[A-Za-z0-9_\-]{90,300}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'HashiCorp Vault'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Pulumi access token
+  - id: 'PULUMI_TOKEN_001'
+    name: 'Pulumi Access Token'
+    key: 'pulumi_access_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bpul-[a-f0-9]{40}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Pulumi'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Linear API key
+  - id: 'LINEAR_KEY_001'
+    name: 'Linear API Key'
+    key: 'linear_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\blin_api_[A-Za-z0-9]{40}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Linear'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Notion integration token (old: secret_... / new: ntn_...)
+  - id: 'NOTION_KEY_001'
+    name: 'Notion Integration Token'
+    key: 'notion_integration_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bsecret_[A-Za-z0-9]{43}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Notion'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'NOTION_KEY_002'
+    name: 'Notion Internal Integration Token'
+    key: 'notion_api_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bntn_[0-9]{11}[A-Za-z0-9]{35}\b'
+    license: MIT
+    source: betterleaks
+    provider: 'Notion'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Netlify personal access token
+  - id: 'NETLIFY_KEY_001'
+    name: 'Netlify Personal Access Token'
+    key: 'netlify_access_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bnfp_[A-Za-z0-9]{36,}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Netlify'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Firebase FCM server key (AAAA + 7 base62url chars + colon + 140 chars)
+  - id: 'FIREBASE_KEY_001'
+    name: 'Firebase FCM Server Key'
+    key: 'firebase_fcm_server_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bAAAA[A-Za-z0-9_\-]{7}:[A-Za-z0-9_\-]{140}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'Firebase'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Airtable Personal Access Token
+  - id: 'AIRTABLE_KEY_001'
+    name: 'Airtable Personal Access Token'
+    key: 'airtable_pat'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bpat[A-Za-z0-9]{14}\.[A-Za-z0-9]{64}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Airtable'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # WooCommerce REST API consumer key / secret
+  - id: 'WOOCOMMERCE_KEY_001'
+    name: 'WooCommerce Consumer Key'
+    key: 'woocommerce_ck'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bck_[a-z0-9]{40}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'WooCommerce'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'WOOCOMMERCE_KEY_002'
+    name: 'WooCommerce Consumer Secret'
+    key: 'woocommerce_cs'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bcs_[a-z0-9]{40}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'WooCommerce'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Discord bot token — three dot-separated base62url segments:
+  # seg1: 23-28 chars (base64url-encoded user ID — no longer limited to M/N/O;
+  # Discord snowflake IDs have grown beyond the range that encodes to those chars)
+  # seg2: 6-7 chars (base64url-encoded token timestamp)
+  # seg3: exactly 27 chars (HMAC digest)
+  # Also covers MFA tokens: mfa. + 20+ base62url chars.
+  # First char of seg1 restricted to [A-Za-z0-9] (not _ or -) since base64url-encoded
+  # integers always start with an alphanumeric character.
+  # ReDoS fix 2026-10-24: lowercase/digit lookaheads limited to the token's own characters (were \S* scans to the next whitespace: quadratic, and satisfied by text after the token).
+  - id: 'DISCORD_TOKEN_001'
+    name: 'Discord Bot Token'
+    key: 'discord_bot_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\b(?=[A-Za-z0-9_.\-]{0,100}?[a-z])(?=[A-Za-z0-9_.\-]{0,100}?[0-9])(?:mfa\.[A-Za-z0-9_\-]{20,}|[A-Za-z0-9][A-Za-z0-9_\-]{22,27}\.[A-Za-z0-9_\-]{6,7}\.[A-Za-z0-9_\-]{27,38})\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Discord'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Discord incoming webhook URL
+  - id: 'DISCORD_TOKEN_002'
+    name: 'Discord Incoming Webhook URL'
+    key: 'discord_webhook_url'
+    kind: anchored
+    severity: HIGH
+    pattern: 'https://(?:canary\.|ptb\.)?discord(?:app)?\.com/api/webhooks/[0-9]{17,19}/[A-Za-z0-9_\-]{60,68}'
+    source: secretsifter
+    license: MIT
+    provider: 'Discord'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Slack incoming webhook URL
+  - id: 'SLACK_TOKEN_005'
+    name: 'Slack Incoming Webhook URL'
+    key: 'slack_webhook_url'
+    kind: anchored
+    severity: HIGH
+    pattern: 'https://hooks\.slack\.com/(?:services/T[A-Za-z0-9_]{8,11}/B[A-Za-z0-9_]{8,11}/[A-Za-z0-9_]{24}|(?:workflows|triggers)/T[A-Za-z0-9_]{8,11}/A[A-Za-z0-9_]{8,11}/[0-9]{17,19}/[A-Za-z0-9_]{24,32})'
+    source: secretsifter
+    license: MIT
+    provider: 'Slack'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Twitter/X app bearer token (AAA...AAA + 40–130 mixed chars).
+  # Upper bound rejects WebAssembly/binary lookup tables which are hundreds–thousands of A's.
+  # Real Twitter bearer tokens are 60–120 chars total.
+  - id: 'TWITTER_KEY_001'
+    name: 'Twitter/X App Bearer Token'
+    key: 'twitter_bearer_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bAAAAAAAAAAAAAAAAAAAAA(?=[A-Za-z0-9%_\-]{0,130}%)[A-Za-z0-9%_\-]{40,130}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'X (Twitter)'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # New Relic license key and Insights insert key
+  - id: 'NEWRELIC_KEY_001'
+    name: 'New Relic User API Key'
+    key: 'newrelic_license_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bNRAK-[A-Z0-9]{27}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'New Relic'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'NEWRELIC_KEY_002'
+    name: 'New Relic Insights Insert Key'
+    key: 'newrelic_ingest_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bNRII-[A-Za-z0-9_\-]{32}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'New Relic'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'NEWRELIC_KEY_003'
+    name: 'New Relic License (Ingest) Key'
+    key: 'newrelic_license_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\b[a-f0-9]{36}NRAL\b'
+    source: secretsifter
+    license: MIT
+    provider: 'New Relic'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Dynatrace API token (dt0 + 2-letter type code + 2 digits + dot + 24 + dot + 64)
+  - id: 'DYNATRACE_KEY_001'
+    name: 'Dynatrace API Token'
+    key: 'dynatrace_api_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bdt0[a-z][0-9]{2}\.[A-Z0-9]{24}\.[A-Za-z0-9]{64}\b'
+    license: MIT
+    source: betterleaks
+    provider: 'Dynatrace'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Telegram bot API token (numeric bot id + :AA + 33-char key)
+  - id: 'TELEGRAM_KEY_001'
+    name: 'Telegram Bot API Token'
+    key: 'telegram_bot_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '(?<![0-9])[0-9]{8,12}:AA[A-Za-z0-9_\-]{33}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'Telegram'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Mailgun API key
+  - id: 'MAILGUN_KEY_001'
+    name: 'Mailgun API Key'
+    key: 'mailgun_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '(?<![A-Za-z0-9_\-])key-[a-f0-9]{32}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Mailgun'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # FORMAT UNVERIFIED: the rk./uk. shape comes from the existing rule; confirm against PagerDuty docs during the harvest phase.
+  # PagerDuty REST API key (rk.) and user key (uk.)
+  - id: 'PAGERDUTY_KEY_001'
+    name: 'PagerDuty API Key'
+    key: 'pagerduty_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bu\+[A-Za-z0-9_+\-]{18}(?![A-Za-z0-9_+\-])'
+    license: MIT
+    source: betterleaks
+    provider: 'PagerDuty'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Age encryption secret key (bech32 encoded)
+  - id: 'AGE_KEY_001'
+    name: 'Age Encryption Secret Key'
+    key: 'age_secret_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bAGE-SECRET-KEY-1[QPZRY9X8GF2TVDW0S3JN54KHCE6MUA7L]{58}\b'
+    license: MIT
+    source: betterleaks
+    provider: 'age'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Alibaba Cloud Access Key ID
+  - id: 'ALIBABA_KEY_001'
+    name: 'Alibaba Cloud Access Key ID'
+    key: 'alibaba_access_key_id'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bLTAI[A-Za-z0-9]{20}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Alibaba Cloud'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Atlassian API token (ATATT / ATCTT prefix — new format)
+  - id: 'ATLASSIAN_KEY_001'
+    name: 'Atlassian API Token'
+    key: 'atlassian_api_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\b(?:ATATT|ATCTT)[A-Za-z0-9_\-]{90,250}(?:=[A-F0-9]{8})?(?![A-Za-z0-9_\-=])'
+    source: secretsifter
+    license: MIT
+    provider: 'Atlassian'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Contentful Content Management API token
+  - id: 'CONTENTFUL_KEY_001'
+    name: 'Contentful CMA Token'
+    key: 'contentful_cma_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bCFPAT-[A-Za-z0-9_\-]{43}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'Contentful'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # DigitalOcean personal access token / OAuth token
+  - id: 'DO_KEY_001'
+    name: 'DigitalOcean Personal Access Token'
+    key: 'digitalocean_pat'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bdop_v1_[a-f0-9]{64}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'DigitalOcean'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'DO_KEY_002'
+    name: 'DigitalOcean OAuth Token'
+    key: 'digitalocean_oauth'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bdoo_v1_[a-f0-9]{64}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'DigitalOcean'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'DO_KEY_003'
+    name: 'DigitalOcean Refresh Token'
+    key: 'digitalocean_refresh_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bdor_v1_[a-f0-9]{64}\b'
+    source: betterleaks
+    license: MIT
+    provider: 'DigitalOcean'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Doppler service token
+  - id: 'DOPPLER_KEY_001'
+    name: 'Doppler Token'
+    key: 'doppler_service_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bdp\.(?:pt|st(?:\.[a-z0-9_\-]+)?|ct|sa|scim|audit)\.[A-Za-z0-9]{40,44}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Doppler'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Duffel travel API access token
+  - id: 'DUFFEL_KEY_001'
+    name: 'Duffel Access Token'
+    key: 'duffel_access_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bduffel_(?:test|live)_[A-Za-z0-9_\-]{43}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'Duffel'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # EasyPost API keys (live + test)
+  - id: 'EASYPOST_KEY_001'
+    name: 'EasyPost API Key (Live)'
+    key: 'easypost_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bEZAK[A-Za-z0-9]{54}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'EasyPost'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'EASYPOST_KEY_002'
+    name: 'EasyPost API Key (Test)'
+    key: 'easypost_test_key'
+    kind: anchored
+    severity: LOW
+    pattern: '\bEZTK[A-Za-z0-9]{54}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'EasyPost'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Flutterwave payment keys (public + secret, with optional _TEST variant)
+  - id: 'FLUTTERWAVE_KEY_001'
+    name: 'Flutterwave Public Key'
+    key: 'flutterwave_pub_key'
+    kind: anchored
+    severity: LOW
+    pattern: '\bFLWPUBK(?:_TEST)?-[a-fA-F0-9]{32}-X\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Flutterwave'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'FLUTTERWAVE_KEY_002'
+    name: 'Flutterwave Secret Key'
+    key: 'flutterwave_sec_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bFLWSECK(?:_TEST)?-[a-fA-F0-9]{32}-X\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Flutterwave'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Frame.io API token
+  - id: 'FRAMEIO_KEY_001'
+    name: 'Frame.io API Token'
+    key: 'frameio_api_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bfio-u-[A-Za-z0-9\-_=]{64}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'Frame.io'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Grafana service account token and cloud access token
+  - id: 'GRAFANA_KEY_001'
+    name: 'Grafana Service Account Token'
+    key: 'grafana_sa_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bglsa_[A-Za-z0-9]{32}_[A-Za-z0-9]{8}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Grafana'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'GRAFANA_KEY_002'
+    name: 'Grafana Cloud Access Token'
+    key: 'grafana_cloud_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bglc_[A-Za-z0-9+/]{32,}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Grafana'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'GRAFANA_KEY_003'
+    name: 'Grafana API Key (legacy)'
+    key: 'grafana_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\beyJrIjoi[A-Za-z0-9+/]{40,380}={0,2}'
+    source: betterleaks
+    license: MIT
+    provider: 'Grafana'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # PlanetScale database credentials
+  - id: 'PSQL_KEY_001'
+    name: 'PlanetScale Database Password'
+    key: 'planetscale_password'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bpscale_pw_[A-Za-z0-9\-_.]{43}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'PlanetScale'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'PSQL_KEY_002'
+    name: 'PlanetScale API Token'
+    key: 'planetscale_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bpscale_tkn_[A-Za-z0-9\-_.]{43}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'PlanetScale'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Postman API key
+  - id: 'POSTMAN_KEY_001'
+    name: 'Postman API Key'
+    key: 'postman_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bPMAK-[a-fA-F0-9]{24}-[A-Za-z0-9]{34}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Postman'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # PyPI upload token
+  - id: 'PYPI_KEY_001'
+    name: 'PyPI Upload Token'
+    key: 'pypi_upload_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bpypi-AgEIcHlwaS5vcmc[A-Za-z0-9\-_]{50,200}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'PyPI'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # SendinBlue / Brevo API key
+  - id: 'SENDINBLUE_KEY_001'
+    name: 'SendinBlue / Brevo API Key'
+    key: 'sendinblue_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bxkeysib-[a-f0-9]{64}-[A-Za-z0-9]{16}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Brevo'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Shippo shipping API token
+  - id: 'SHIPPO_KEY_001'
+    name: 'Shippo Shipping API Token'
+    key: 'shippo_api_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bshippo_(?:live|test)_[a-f0-9]{40}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Shippo'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Azure Storage connection string (very distinctive multi-field format)
+  # The character class includes '\' because JSON serialisers often escape '/' as '\/',
+  # so the Base64 AccountKey may appear as "abc\/xyz" in raw HTML/JS source text.
+  - id: 'AZURE_CONN_001'
+    name: 'Azure Storage Connection String'
+    key: 'azure_storage_conn_str'
+    kind: anchored
+    severity: HIGH
+    pattern: 'DefaultEndpointsProtocol=https?;AccountName=[^;]{1,100};AccountKey=[A-Za-z0-9+/=\\]{60,}'
+    flags: [CASE_INSENSITIVE]
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Azure'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Rubygems API token
+  - id: 'RUBYGEMS_KEY_001'
+    name: 'RubyGems API Token'
+    key: 'rubygems_api_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\brubygems_[a-f0-9]{48}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'RubyGems'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Hugging Face user/org API token
+  - id: 'HF_KEY_001'
+    name: 'Hugging Face API Token'
+    key: 'huggingface_api_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bhf_[A-Za-z0-9]{34}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Hugging Face'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Groq API key
+  - id: 'GROQ_KEY_001'
+    name: 'Groq API Key'
+    key: 'groq_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bgsk_[A-Za-z0-9]{52}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Groq'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Replicate API token
+  - id: 'REPLICATE_KEY_001'
+    name: 'Replicate API Token'
+    key: 'replicate_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\br8_[A-Za-z0-9]{37}\b'
+    license: MIT
+    source: betterleaks
+    provider: 'Replicate'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # xAI / Grok API key
+  - id: 'XAI_KEY_001'
+    name: 'xAI / Grok API Key'
+    key: 'xai_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bxai-[A-Za-z0-9]{80}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'xAI'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Buildkite access token
+  - id: 'BUILDKITE_KEY_001'
+    name: 'Buildkite Access Token'
+    key: 'buildkite_access_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bbkua_[A-Za-z0-9]{40}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Buildkite'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Tailscale API key
+  - id: 'TAILSCALE_KEY_001'
+    name: 'Tailscale API Key'
+    key: 'tailscale_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\btskey-(?:api|auth|client)-[A-Za-z0-9_\-]{20,64}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'Tailscale'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Fly.io bearer token (FlyV1 prefix)
+  - id: 'FLYIO_KEY_001'
+    name: 'Fly.io Auth Token'
+    key: 'flyio_auth_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bFlyV1\s+[A-Za-z0-9+/=_\-]{40,}'
+    source: secretsifter
+    license: MIT
+    provider: 'Fly.io'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # LangSmith / LangChain personal API key
+  - id: 'LANGSMITH_KEY_001'
+    name: 'LangSmith API Key'
+    key: 'langsmith_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\blsv2_(?:pt|sk)_[a-f0-9]{32}_[a-f0-9]{10}\b'
+    license: MIT
+    source: betterleaks
+    provider: 'LangSmith'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Langfuse secret key (sk-lf- + UUID)
+  - id: 'LANGFUSE_KEY_001'
+    name: 'Langfuse Secret Key'
+    key: 'langfuse_secret_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bsk-lf-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Langfuse'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Okta SSWS API Token — real format is "SSWS " followed by 40-48 alphanumeric chars
+  - id: 'OKTA_KEY_001'
+    name: 'Okta SSWS API Token'
+    key: 'okta_ssws_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bSSWS\s+[A-Za-z0-9_\-]{40,48}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'Okta'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # CircleCI Personal API Token — "ccipat_" prefix + 40+ alphanumeric chars
+  - id: 'CIRCLECI_KEY_001'
+    name: 'CircleCI Personal API Token'
+    key: 'circleci_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bCCIPAT_[A-Za-z0-9]{22}_[a-f0-9]{40}\b'
+    license: MIT
+    source: betterleaks
+    provider: 'CircleCI'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Terraform Cloud API Token — "at." prefix + 90+ alphanumeric chars
+  - id: 'TERRAFORM_KEY_001'
+    name: 'Terraform Cloud API Token'
+    key: 'terraform_cloud_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\b[A-Za-z0-9]{14}\.atlasv1\.[A-Za-z0-9_=\-]{60,70}(?![A-Za-z0-9_=\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'HashiCorp Terraform'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Sentry Auth Token — "sntrys_" prefix + 64+ alphanumeric chars
+  - id: 'SENTRY_KEY_001'
+    name: 'Sentry Org Token'
+    key: 'sentry_auth_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bsntrys_eyJ[A-Za-z0-9+/=_]{40,400}(?![A-Za-z0-9+/=_])'
+    source: secretsifter
+    license: MIT
+    provider: 'Sentry'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'SENTRY_KEY_002'
+    name: 'Sentry User Token'
+    key: 'sentry_user_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bsntryu_[a-f0-9]{64}\b'
+    source: betterleaks
+    license: MIT
+    provider: 'Sentry'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Figma Personal Access Token — "figd_" prefix + 43 chars
+  - id: 'FIGMA_KEY_001'
+    name: 'Figma Personal Access Token'
+    key: 'figma_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bfigd_[A-Za-z0-9_\-]{38,43}(?![A-Za-z0-9_\-])'
+    license: MIT
+    source: betterleaks
+    provider: 'Figma'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Dropbox Access Token — "sl." prefix + 130+ chars
+  - id: 'DROPBOX_KEY_001'
+    name: 'Dropbox Access Token'
+    key: 'dropbox_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bsl\.[A-Za-z0-9\-_]{130,}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'Dropbox'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Square Access Token — "sq0atp-" prefix + 22+ chars
+  - id: 'SQUARE_KEY_001'
+    name: 'Square Access Token'
+    key: 'square_access_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\b(?:EAAA|sq0atp-)[A-Za-z0-9_\-]{22,60}(?![A-Za-z0-9_\-])'
+    license: MIT
+    source: betterleaks
+    provider: 'Square'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Stripe Publishable Key (Live) — low severity: Stripe designs this to be public,
+  # but exposes Stripe account identity and enables card-validity probing.
+  - id: 'STRIPE_KEY_004'
+    name: 'Stripe Publishable Key (Live)'
+    key: 'stripe_pub_key_live'
+    kind: anchored
+    severity: LOW
+    pattern: '\bpk_live_[A-Za-z0-9]{24,200}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Stripe'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Stripe Publishable Key (Test) — informational: test environment, zero financial impact
+  - id: 'STRIPE_KEY_006'
+    name: 'Stripe Publishable Key (Test)'
+    key: 'stripe_pub_key_test'
+    kind: anchored
+    severity: INFORMATION
+    pattern: '\bpk_test_[A-Za-z0-9]{24,200}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Stripe'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Cloudinary API URL — contains API key + secret embedded in URL
+  - id: 'CLOUDINARY_KEY_001'
+    name: 'Cloudinary API URL'
+    key: 'cloudinary_api_url'
+    kind: anchored
+    severity: HIGH
+    pattern: 'cloudinary://[0-9]{6,}:[A-Za-z0-9_\-]{20,}@[a-z0-9_\-]+'
+    source: secretsifter
+    license: MIT
+    provider: 'Cloudinary'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Microsoft Teams Incoming Webhook URL
+  - id: 'TEAMS_WEBHOOK_001'
+    name: 'Microsoft Teams Webhook URL'
+    key: 'teams_webhook_url'
+    kind: anchored
+    severity: HIGH
+    pattern: 'https://[a-z0-9]+\.webhook\.office\.com/webhookb2/[A-Za-z0-9\-@/]{20,}'
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Teams'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # JSON Web Token (JWT) — three base64url segments separated by dots
+  # Gated by minimum segment lengths to avoid matching short nonces/UUIDs
+  - id: 'JWT_TOKEN_001'
+    name: 'JSON Web Token (JWT)'
+    key: 'jwt_token'
+    kind: anchored
+    severity: MEDIUM
+    pattern: '(?<![A-Za-z0-9_\-.])eyJ[A-Za-z0-9_\-]{10,2048}+\.[A-Za-z0-9_\-]{2,16384}+\.[A-Za-z0-9_\-]{10,4096}+(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'Generic (JWT)'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Mapbox access tokens are always JWTs — their payload starts with "eyJ" (base64-encoded "{").
+  # "tk." is a common JS variable/namespace prefix, NOT a Mapbox token prefix — exclude it.
+  - id: 'MAPBOX_KEY_001'
+    name: 'Mapbox Secret / Temporary Token'
+    key: 'mapbox_access_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\b(?:sk|tk)\.eyJ[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{20,}'
+    source: secretsifter
+    license: MIT
+    provider: 'Mapbox'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Mapbox pk. tokens are public by design (browser maps); sk./tk. are secret
+  - id: 'MAPBOX_KEY_002'
+    name: 'Mapbox Public Token'
+    key: 'mapbox_public_token'
+    kind: anchored
+    severity: LOW
+    pattern: '\bpk\.eyJ[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{20,}'
+    source: secretsifter
+    license: MIT
+    provider: 'Mapbox'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Apify API token
+  - id: 'APIFY_KEY_001'
+    name: 'Apify API Token'
+    key: 'apify_api_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bapify_api_[A-Za-z0-9]{34,38}\b'
+    license: MIT
+    source: betterleaks
+    provider: 'Apify'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Asana Personal Access Token — 1/numericId:32hexchars
+  - id: 'ASANA_KEY_001'
+    name: 'Asana Personal Access Token'
+    key: 'asana_pat'
+    kind: anchored
+    severity: HIGH
+    pattern: '\b[12]/[0-9]{15,20}(?:/[0-9]{15,20})?:[a-f0-9]{32}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Asana'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Elastic Cloud / Enterprise API key — "ApiKey " + base64
+  - id: 'ELASTIC_KEY_001'
+    name: 'Elastic API Key'
+    key: 'elastic_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bApiKey\s+(?=[A-Za-z0-9+/]*[0-9])[A-Za-z0-9+/]{20,}={0,2}'
+    source: secretsifter
+    license: MIT
+    provider: 'Elastic'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Google OAuth 2.0 Client ID (apps.googleusercontent.com)
+  - id: 'GOOGLE_KEY_002'
+    name: 'Google OAuth 2.0 Client ID'
+    key: 'google_oauth_client_id'
+    kind: anchored
+    severity: LOW
+    pattern: '\b[0-9]{12}-[a-z0-9]{32}\.apps\.googleusercontent\.com\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Google'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Square OAuth token — "sq0idp-" prefix (distinct from sq0atp- access token)
+  - id: 'SQUARE_KEY_002'
+    name: 'Square Application ID (public)'
+    key: 'square_oauth_token'
+    kind: anchored
+    severity: LOW
+    pattern: '\bsq0idp-[A-Za-z0-9\-_]{22}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'Square'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'SQUARE_KEY_003'
+    name: 'Square OAuth Secret'
+    key: 'square_oauth_secret'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bsq0csp-[A-Za-z0-9_\-]{43}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'Square'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Azure Application Insights connection string
+  - id: 'AZURE_CONN_002'
+    name: 'Azure App Insights Connection String'
+    key: 'azure_app_insights_conn'
+    kind: anchored
+    severity: LOW
+    pattern: 'InstrumentationKey=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+    flags: [CASE_INSENSITIVE]
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Azure'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # IoT Hub: HostName=X.azure-devices.net;SharedAccessKeyName=Y;SharedAccessKey=<base64>
+  - id: 'AZURE_CONN_003'
+    name: 'Azure IoT Hub Connection String'
+    key: 'azure_iot_hub_conn_str'
+    kind: anchored
+    severity: HIGH
+    pattern: 'HostName=[^;]{1,100}\.azure-devices\.net[^;]{0,20};SharedAccessKeyName=[^;]{1,100};SharedAccessKey=([A-Za-z0-9+/=\\]{20,200})'
+    flags: [CASE_INSENSITIVE]
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Azure'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Event Hub / Service Bus: Endpoint=sb://X.servicebus.windows.net/;SharedAccessKeyName=Y;SharedAccessKey=<base64>
+  # [^;]{0,15} skips the "sb://" or "sb:\/" part without explicit slash handling
+  - id: 'AZURE_CONN_004'
+    name: 'Azure Event Hub / Service Bus Conn String'
+    key: 'azure_eventhub_conn_str'
+    kind: anchored
+    severity: HIGH
+    pattern: 'Endpoint=sb:[^;]{0,15}\.servicebus\.windows\.net[^;]{0,30};SharedAccessKeyName=[^;]{1,100};SharedAccessKey=([A-Za-z0-9+/=\\]{20,200})'
+    flags: [CASE_INSENSITIVE]
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Azure'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Cosmos DB: AccountEndpoint=https://X.documents.azure.com:443/;AccountKey=<base64>
+  - id: 'AZURE_CONN_005'
+    name: 'Azure Cosmos DB Connection String'
+    key: 'azure_cosmos_conn_str'
+    kind: anchored
+    severity: HIGH
+    pattern: 'AccountEndpoint=https?:[^;]{0,15}\.documents\.azure\.com[^;]{0,30};AccountKey=([A-Za-z0-9+/=\\]{20,200})'
+    flags: [CASE_INSENSITIVE]
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Azure'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Azure Cache for Redis: X.redis.cache.windows.net:6380,password=<key>,ssl=True
+  # Comma-delimited format — [^,] prevents crossing field boundaries
+  - id: 'AZURE_CONN_006'
+    name: 'Azure Cache for Redis Connection String'
+    key: 'azure_redis_conn_str'
+    kind: anchored
+    severity: HIGH
+    pattern: '[a-zA-Z0-9\-]{1,63}\.redis\.cache\.windows\.net[^,]{0,20},password=([^,\s"''\r\n]{20,200})'
+    flags: [CASE_INSENSITIVE]
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Azure'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Azure Communication Services: endpoint=https://X.communication.azure.com/;accesskey=<base64>
+  - id: 'AZURE_CONN_007'
+    name: 'Azure Communication Services Conn String'
+    key: 'azure_acs_conn_str'
+    kind: anchored
+    severity: HIGH
+    pattern: 'endpoint=https?:[^;]{0,15}\.communication\.azure\.com[^;]{0,30};accesskey=([A-Za-z0-9+/=\\]{20,200})'
+    flags: [CASE_INSENSITIVE]
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Azure'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Azure Web PubSub: Endpoint=https://X.webpubsub.azure.com;AccessKey=<base64>;Version=1.0
+  - id: 'AZURE_CONN_008'
+    name: 'Azure Web PubSub Connection String'
+    key: 'azure_webpubsub_conn_str'
+    kind: anchored
+    severity: HIGH
+    pattern: 'Endpoint=https?:[^;]{0,15}\.webpubsub\.azure\.com[^;]{0,30};AccessKey=([A-Za-z0-9+/=\\]{20,200})'
+    flags: [CASE_INSENSITIVE]
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Azure'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Azure SignalR: Endpoint=https://X.service.signalr.net;AccessKey=<base64>;Version=1.0
+  - id: 'AZURE_CONN_009'
+    name: 'Azure SignalR Connection String'
+    key: 'azure_signalr_conn_str'
+    kind: anchored
+    severity: HIGH
+    pattern: 'Endpoint=https?:[^;]{0,15}\.service\.signalr\.net[^;]{0,30};AccessKey=([A-Za-z0-9+/=\\]{20,200})'
+    flags: [CASE_INSENSITIVE]
+    source: secretsifter
+    license: MIT
+    provider: 'Microsoft Azure'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # GCP service account e-mail (client_email field in service account JSON)
+  - id: 'GCP_KEY_001'
+    name: 'GCP Service Account Email'
+    key: 'gcp_sa_client_email'
+    kind: anchored
+    severity: LOW
+    pattern: '\b[a-z0-9\-]{1,64}@[a-z0-9\-]{1,64}\.iam\.gserviceaccount\.com\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Google Cloud'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Razorpay live key
+  - id: 'RAZORPAY_KEY_001'
+    name: 'Razorpay Key ID (Live, public)'
+    key: 'razorpay_live_key'
+    kind: anchored
+    severity: LOW
+    pattern: '\brzp_live_[A-Za-z0-9]{14}\b'
+    license: MIT
+    source: betterleaks
+    provider: 'Razorpay'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Razorpay test key
+  - id: 'RAZORPAY_KEY_002'
+    name: 'Razorpay Key ID (Test)'
+    key: 'razorpay_test_key'
+    kind: anchored
+    severity: INFORMATION
+    pattern: '\brzp_test_[A-Za-z0-9]{14}\b'
+    license: MIT
+    source: betterleaks
+    provider: 'Razorpay'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Supabase Personal Access Token
+  - id: 'SUPABASE_KEY_001'
+    name: 'Supabase Personal Access Token'
+    key: 'supabase_pat'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bsbp_[a-f0-9]{40}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Supabase'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'SUPABASE_KEY_002'
+    name: 'Supabase Secret Key'
+    key: 'supabase_secret_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bsb_secret_[A-Za-z0-9_\-]{31}(?![A-Za-z0-9_\-])'
+    source: betterleaks
+    license: MIT
+    provider: 'Supabase'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Braintree OAuth access token (production + sandbox)
+  - id: 'BRAINTREE_KEY_001'
+    name: 'Braintree OAuth Access Token'
+    key: 'braintree_access_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\baccess_token\$(?:production|sandbox)\$[a-f0-9]{16}\$[a-f0-9]{32}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Braintree'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Braintree client/tokenization key — sandbox_<8>_<12–32> or production_<8>_<12–32>
+  # These are the client-side keys passed to braintree.client.create().
+  # Sandbox keys are LOW (test environment); production keys are MEDIUM (client-exposed but real).
+  - id: 'BRAINTREE_KEY_003'
+    name: 'Braintree Client Token (Production)'
+    key: 'braintree_client_token_prod'
+    kind: anchored
+    severity: MEDIUM
+    pattern: '\bproduction_(?=[a-z0-9]*[0-9])[a-z0-9]{6,12}_(?=[a-z0-9]*[0-9])[a-z0-9]{12,32}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Braintree'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'BRAINTREE_KEY_002'
+    name: 'Braintree Client Token (Sandbox / Test)'
+    key: 'braintree_client_token_sandbox'
+    kind: anchored
+    severity: LOW
+    pattern: '\bsandbox_(?=[a-z0-9]*[0-9])[a-z0-9]{6,12}_(?=[a-z0-9]*[0-9])[a-z0-9]{12,32}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Braintree'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Klaviyo private API key — pk_ prefix + 34 hex chars (MEDIUM: short prefix has moderate FP risk)
+  - id: 'KLAVIYO_KEY_001'
+    name: 'Klaviyo Private API Key'
+    key: 'klaviyo_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bpk_[a-f0-9]{34}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Klaviyo'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Stripe Webhook Signing Secret — whsec_ prefix + 40 base62 chars
+  - id: 'STRIPE_KEY_005'
+    name: 'Stripe Webhook Signing Secret'
+    key: 'stripe_webhook_secret'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bwhsec_[A-Za-z0-9+/=]{24,90}(?![A-Za-z0-9+/=])'
+    source: secretsifter
+    license: MIT
+    provider: 'Stripe'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # btoa("clientId:secret") — OAuth Basic Auth credential pair hardcoded in frontend JS.
+  # Both sides must be ≥8 chars; allows alphanumeric plus hyphen, underscore, dot, +, /
+  # (covers UUID-format client IDs, base64url secrets, etc.).  The btoa("…") wrapper
+  # plus colon separator provide strong anchoring — URL false-positives are impossible
+  # because URLs contain "://" which would fail the single-colon split.
+  # e.g. btoa("xnaxZVSMszwY4Taj5iYWOptnDsMSY6up:NQBpjpn47uKgoljE")
+  # e.g. btoa("a1b2c3d4-e5f6-7890-abcd-ef1234567890:MyS3cr3t_Key.value")
+  - id: 'BTOA_CREDS_001'
+    name: 'OAuth Credential Pair in btoa() Call'
+    key: 'btoa_oauth_creds'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bbtoa\(\s*(?:"[A-Za-z0-9\-_.+/@]{3,200}:[A-Za-z0-9\-_.+/!#$%^&*@]{8,200}"|''[A-Za-z0-9\-_.+/@]{3,200}:[A-Za-z0-9\-_.+/!#$%^&*@]{8,200}''|`[A-Za-z0-9\-_.+/@]{3,200}:[A-Za-z0-9\-_.+/!#$%^&*@]{8,200}`)\s*\)'
+    source: secretsifter
+    license: MIT
+    provider: 'Generic (Basic auth)'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # DeepSeek API key — sk- + 32 lowercase hex (distinct from OpenAI sk- + 48 alphanumeric)
+  - id: 'DEEPSEEK_KEY_001'
+    name: 'DeepSeek / OpenAI-compatible API Key'
+    key: 'deepseek_api_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bsk-[a-f0-9]{32}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'DeepSeek'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # GCP OAuth2 short-lived access token — ya29. prefix (returned after OAuth2 token exchange)
+  - id: 'GCP_KEY_003'
+    name: 'GCP OAuth2 Access Token'
+    key: 'gcp_oauth2_access_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bya29\.[A-Za-z0-9_\-]{30,}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'Google Cloud'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Twitch stream key — live_{8-12 digit accountId}_{30-36 alnum}
+  - id: 'TWITCH_KEY_001'
+    name: 'Twitch Stream Key'
+    key: 'twitch_stream_key'
+    kind: anchored
+    severity: MEDIUM
+    pattern: '\blive_\d{8,12}_[A-Za-z0-9]{30,36}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Twitch'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Paystack API key — sk_live_ or sk_test_ + 40 uppercase base62
+  - id: 'PAYSTACK_KEY_001'
+    name: 'Paystack Live API Key'
+    key: 'paystack_live_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bsk_live_[A-Z0-9]{40}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Paystack'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  - id: 'PAYSTACK_KEY_002'
+    name: 'Paystack Test API Key'
+    key: 'paystack_test_key'
+    kind: anchored
+    severity: LOW
+    pattern: '\bsk_test_[A-Z0-9]{40}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Paystack'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # 1Password Service Account Token — ops_eyJ prefix (base64url-encoded JWT header)
+  - id: 'ONEPASSWORD_KEY_001'
+    name: '1Password Service Account Token'
+    key: 'onepassword_service_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bops_eyJ[A-Za-z0-9+/_\-]{80,4000}={0,3}'
+    source: secretsifter
+    license: MIT
+    provider: '1Password'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Harness Personal Access Token — pat.{22upper}.{24hex}.{20upper}
+  - id: 'HARNESS_KEY_001'
+    name: 'Harness Personal Access Token'
+    key: 'harness_pat'
+    kind: anchored
+    severity: HIGH
+    pattern: '\b(?:pat|sat)\.[A-Za-z0-9_\-]{22}\.[0-9a-f]{24}\.[A-Za-z0-9]{20}\b'
+    license: MIT
+    source: betterleaks
+    provider: 'Harness'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Scalingo API token — tk-us- prefix + 48 base62
+  - id: 'SCALINGO_KEY_001'
+    name: 'Scalingo API Token'
+    key: 'scalingo_api_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\btk-us-[A-Za-z0-9_\-]{48}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'Scalingo'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # Adafruit IO key — aio_ prefix + 28 alphanumeric
+  - id: 'ADAFRUIT_KEY_001'
+    name: 'Adafruit IO Key'
+    key: 'adafruit_io_key'
+    kind: anchored
+    severity: HIGH
+    pattern: '\baio_[A-Za-z0-9]{28}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Adafruit IO'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # SonarQube / SonarCloud user token (v9.x+) — squ_ or sqp_ prefix + 40 hex
+  - id: 'SONAR_KEY_001'
+    name: 'SonarQube / SonarCloud Token'
+    key: 'sonarqube_token'
+    kind: anchored
+    severity: HIGH
+    pattern: '\b(?:squ|sqp|sqa)_[a-f0-9]{40}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'SonarQube'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # bcrypt password hash — indicates hashed credentials exposed in response
+  - id: 'PWHASH_KEY_001'
+    name: 'bcrypt Password Hash (Credential Exposure)'
+    key: 'bcrypt_password_hash'
+    kind: anchored
+    severity: MEDIUM
+    pattern: '\$2[abxy]\$\d{1,2}\$[./A-Za-z0-9]{53}'
+    source: secretsifter
+    license: MIT
+    provider: 'Generic (password hash)'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # FlexMonster pivot table license key.
+  # Format: XXXX-XXXXXX-DDDDDD(-XXXXXX){4,} where X = uppercase alphanum, D = digit.
+  # The third segment being pure digits is the distinguishing feature vs. random hex.
+  # Example: Z7ER-XJDC0M-252462-0T4P69-5R3S6O-5X6I4Q-4Y5B1Q-0M4M1O-2M102B-6U4S0E-255U1M-6R2E2S
+  - id: 'FLEXMONSTER_KEY_001'
+    name: 'Flexmonster License Key (client-side)'
+    key: 'flexmonster_license_key'
+    kind: anchored
+    severity: LOW
+    pattern: '\b[A-Z0-9]{4}-[A-Z0-9]{6}-[0-9]{6}(?:-[A-Z0-9]{6}){4,}\b'
+    source: secretsifter
+    license: MIT
+    provider: 'Flexmonster'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # GCP OAuth2 client secret — issued by Google Cloud Console for OAuth2 apps.
+  # GOCSPX- prefix + 28 base62url chars.  Distinct from the ya29. access token.
+  - id: 'GCP_KEY_004'
+    name: 'GCP OAuth2 Client Secret'
+    key: 'gcp_client_secret'
+    kind: anchored
+    severity: HIGH
+    pattern: '\bGOCSPX-[A-Za-z0-9_\-]{28}(?![A-Za-z0-9_\-])'
+    source: secretsifter
+    license: MIT
+    provider: 'Google Cloud'
+    cwe: 'CWE-798'
+    owasp: 'A07:2021'
+  # OAuth2/OIDC resource ID disclosure — Azure AD B2C, Auth0, Okta, AD FS, etc.
+  # The resource field (or resourceId) carries the API app/client GUID. Public
+  # by OAuth design but useful recon info when paired with the tenant URL.
+  # X.509 certificate thumbprint — SHA-1 fingerprint (40 hex chars), public by design.
+  # Exposes which certificates are in use for signing/TLS; useful recon info.
+  # Vault secret reference ID — keys named *SecretId / *PasswordSecretId with a UUID value.
+  # These are pointers to where credentials are stored (Azure Key Vault, CyberArk, etc.),
+  # not credentials themselves. Exposes vault topology and secret naming conventions.
