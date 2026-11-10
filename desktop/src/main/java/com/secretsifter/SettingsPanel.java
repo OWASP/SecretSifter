@@ -515,15 +515,28 @@ public class SettingsPanel {
         // Lets users plug in their own Anthropic / OpenAI / etc. key for outbound
         // AI calls (triage, summarisation, etc.).  Stored in the same encrypted-at-
         // rest Java prefs store as the MCP token.  Default-masked; toggle reveals.
+        // Row 1: provider + API key (drives the "AI Triage All" button on the Scan tab)
         JPanel aiKeyRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
-        aiKeyRow.add(new JLabel("AI Provider API Key:"));
-        String savedAiKey = prefs.getString("ai.provider.key");
-        aiKeyField = new JPasswordField(savedAiKey == null ? "" : savedAiKey, 40);
+        aiKeyRow.add(new JLabel("AI Triage — Provider:"));
+        final String[] AI_LABELS = {"Claude (Anthropic)", "OpenAI", "Google Gemini", "DeepSeek", "OpenAI-compatible (custom endpoint)"};
+        final AiTriageProvider.Provider[] AI_PROVIDERS = {
+                AiTriageProvider.Provider.ANTHROPIC, AiTriageProvider.Provider.OPENAI,
+                AiTriageProvider.Provider.GEMINI, AiTriageProvider.Provider.DEEPSEEK,
+                AiTriageProvider.Provider.OPENAI_COMPATIBLE };
+        final JComboBox<String> aiProviderCombo = new JComboBox<>(AI_LABELS);
+        for (int i = 0; i < AI_PROVIDERS.length; i++) if (AI_PROVIDERS[i] == settings.getAiProvider()) aiProviderCombo.setSelectedIndex(i);
+        aiProviderCombo.setToolTipText("Model backend used by 'AI Triage All' on the Scan tab.");
+        aiKeyRow.add(aiProviderCombo);
+
+        aiKeyRow.add(new JLabel("   API Key:"));
+        String savedAiKey = settings.getAiApiKey() != null && !settings.getAiApiKey().isBlank()
+                ? settings.getAiApiKey() : prefs.getString("ai.provider.key");
+        aiKeyField = new JPasswordField(savedAiKey == null ? "" : savedAiKey, 32);
         aiKeyField.setEchoChar('•');
         aiKeyField.setToolTipText(
-                "<html>Optional outbound API key (Anthropic / OpenAI / etc.) for AI features<br>" +
-                "that call out to a model provider.  Stored locally in user prefs and<br>" +
-                "never transmitted except to the configured provider.</html>");
+                "<html>API key for the selected provider. Stored locally in user prefs;<br>" +
+                "sent only to that provider when you run AI Triage. Secret values in<br>" +
+                "findings are redacted before they are sent.</html>");
         aiKeyRow.add(aiKeyField);
 
         showAiKeyBtn = new JToggleButton("Show");
@@ -537,23 +550,41 @@ public class SettingsPanel {
         });
         aiKeyRow.add(showAiKeyBtn);
 
-        JButton saveAiKeyBtn = new JButton("Save Key");
-        saveAiKeyBtn.setToolTipText("Persist this API key to user prefs.");
+        // Row 2: model + custom endpoint + save
+        JPanel aiModelRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        aiModelRow.add(new JLabel("Model:"));
+        final JTextField aiModelField = new JTextField(settings.getAiModel(), 18);
+        aiModelField.setToolTipText("Leave blank or 'latest' to auto-pick the newest flagship model for the provider.");
+        aiModelRow.add(aiModelField);
+        aiModelRow.add(new JLabel("   Endpoint (OpenAI-compatible only):"));
+        final JTextField aiEndpointField = new JTextField(settings.getAiEndpoint(), 26);
+        aiEndpointField.setToolTipText("Custom https:// chat-completions URL for the 'OpenAI-compatible' provider (or a local http://localhost model).");
+        aiModelRow.add(aiEndpointField);
+
+        JButton saveAiKeyBtn = new JButton("Save AI Settings");
+        saveAiKeyBtn.setToolTipText("Persist the AI provider, key, model, and endpoint.");
         saveAiKeyBtn.addActionListener(e -> {
+            settings.setAiProvider(AI_PROVIDERS[Math.max(0, aiProviderCombo.getSelectedIndex())]);
             String k = new String(aiKeyField.getPassword()).trim();
-            prefs.setString("ai.provider.key", k);
-            statusLabel.setText("AI provider key saved.");
+            settings.setAiApiKey(k);
+            settings.setAiModel(aiModelField.getText().trim());
+            settings.setAiEndpoint(aiEndpointField.getText().trim());
+            settings.saveToPrefs(prefs);
+            prefs.setString("ai.provider.key", k);   // back-compat with the earlier pref key
+            statusLabel.setText("AI triage settings saved.");
             statusLabel.setForeground(new Color(0, 160, 0));
         });
-        aiKeyRow.add(saveAiKeyBtn);
+        aiModelRow.add(saveAiKeyBtn);
 
-        // Stack mcpTopRow + aiKeyRow as the NORTH region
+        // Stack mcpTopRow + the two AI rows as the NORTH region
         JPanel mcpNorth = new JPanel();
         mcpNorth.setLayout(new BoxLayout(mcpNorth, BoxLayout.Y_AXIS));
         mcpTopRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         aiKeyRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        aiModelRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         mcpNorth.add(mcpTopRow);
         mcpNorth.add(aiKeyRow);
+        mcpNorth.add(aiModelRow);
         mcpTab.add(mcpNorth, BorderLayout.NORTH);
 
         // ── Left panel: JSON config snippet + action buttons ──────────────

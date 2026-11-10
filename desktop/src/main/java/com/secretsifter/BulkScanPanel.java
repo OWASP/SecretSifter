@@ -93,6 +93,9 @@ public class BulkScanPanel {
     private ToggleSwitch crossOriginApisBox;
     private ToggleSwitch strictScopeBox;
     private ToggleSwitch validateBox;
+    private JButton      aiTriageAllBtn;
+    private final AtomicBoolean aiTriageRunning = new AtomicBoolean(false);
+    private volatile ExecutorService aiExecutor;
     private JButton   startBtn;
     private JButton   stopBtn;
     private JButton   pauseBtn;
@@ -354,6 +357,14 @@ public class BulkScanPanel {
                 "Results appear in the Validation column: active / dead / restricted / unknown.");
         validateBox.addActionListener(e -> onValidateToggled());
         optPanel.add(validateBox);
+
+        aiTriageAllBtn = new JButton("AI Triage All");
+        aiTriageAllBtn.setToolTipText(
+                "<html>Send each finding to the configured AI provider (Settings → AI / MCP) for review.<br>" +
+                "Real findings get an AI-adjusted severity; likely false positives are flagged NOISE.<br>" +
+                "Secret values are sent <b>redacted</b> (shape/length only), never in full.</html>");
+        aiTriageAllBtn.addActionListener(e -> onAiTriageAllClicked());
+        optPanel.add(aiTriageAllBtn);
 
         optPanel.add(Box.createHorizontalStrut(10));
 
@@ -2147,6 +2158,99 @@ public class BulkScanPanel {
     // =========================================================================
     // Live key validation (opt-in). Mirrors the Burp MCP edition.
     // =========================================================================
+
+    // =========================================================================
+    // AI Triage All (direct-API; Anthropic / OpenAI / Gemini / DeepSeek)
+    // =========================================================================
+
+    private void onAiTriageAllClicked() {
+        if (aiTriageRunning.get()) { aiTriageRunning.set(false); return; }   // click again = cancel
+        triageAllWithAi();
+    }
+
+    /**
+     * Reviews every finding with the configured AI provider in batches. Real findings get an
+     * AI-adjusted severity (via {@link AiTriageProvider#deterministicSeverity}); likely false
+     * positives are flagged NOISE (greyed out, excluded from exports) rather than deleted.
+     * Secret values are sent redacted. Findings with no usable verdict are left unchanged.
+     */
+    private void triageAllWithAi() {
+        AiTriageProvider provider = AiTriageProvider.forSettings(settings);
+        if (!provider.isAvailable()) {
+            JOptionPane.showMessageDialog(getPanel(),
+                    "AI triage is not configured.\nChoose a provider and enter an API key in Settings → AI / MCP.",
+                    "AI Triage", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        List<SecretFinding> snapshot;
+        synchronized (tableFindings) { snapshot = new ArrayList<>(tableFindings); }
+        if (snapshot.isEmpty()) { if (statusLabel != null) statusLabel.setText("No findings to triage."); return; }
+        final int total = snapshot.size();
+        aiTriageRunning.set(true);
+        if (aiExecutor == null || aiExecutor.isShutdown())
+            aiExecutor = Executors.newSingleThreadExecutor(r -> { Thread t = new Thread(r, "ai-triage"); t.setDaemon(true); return t; });
+        SwingUtilities.invokeLater(() -> {
+            aiTriageAllBtn.setText("Cancel AI Triage");
+            if (statusLabel != null) statusLabel.setText("AI triage: 0/" + total + "…");
+        });
+        aiExecutor.submit(() -> {
+            int done = 0, noVerdict = 0, noise = 0, failed = 0;
+            String lastError = null;
+            final int batchSize = 15;
+            for (int i = 0; i < snapshot.size() && aiTriageRunning.get(); i += batchSize) {
+                List<SecretFinding> batch = snapshot.subList(i, Math.min(i + batchSize, snapshot.size()));
+                try {
+                    List<AiTriageProvider.TriageResult> results = provider.triageBatch(batch);
+                    for (int j = 0; j < results.size() && aiTriageRunning.get(); j++) {
+                        final SecretFinding f = batch.get(j);
+                        AiTriageProvider.TriageResult r = results.get(j);
+                        done++;
+                        final int fDone = done;
+                        if (!r.hasVerdict()) {
+                            noVerdict++;
+                        } else if (r.real()) {
+                            final String sev  = AiTriageProvider.deterministicSeverity(f, r.severity());
+                            final String conf = r.confidence();
+                            SwingUtilities.invokeLater(() -> {
+                                int mr; synchronized (tableFindings) { mr = tableFindings.indexOf(f); }
+                                if (mr >= 0) updateFinding(mr, sev, conf);
+                            });
+                        } else {
+                            noise++;
+                            SwingUtilities.invokeLater(() -> {
+                                int mr; synchronized (tableFindings) { mr = tableFindings.indexOf(f); }
+                                if (mr >= 0) updateFinding(mr, null, "NOISE");
+                            });
+                        }
+                        SwingUtilities.invokeLater(() -> {
+                            if (statusLabel != null) statusLabel.setText("AI triage: " + fDone + "/" + total + "…");
+                        });
+                    }
+                } catch (Exception e) {
+                    done += batch.size(); failed++; lastError = e.getMessage();
+                    if (logger != null) logger.logToError("[AI Triage] batch error: " + e);
+                }
+            }
+            final boolean cancelled = !aiTriageRunning.get();
+            final int fDone = done, fNoise = noise, fNoVerdict = noVerdict, fFailed = failed;
+            final String fErr = lastError;
+            aiTriageRunning.set(false);
+            SwingUtilities.invokeLater(() -> {
+                aiTriageAllBtn.setText("AI Triage All");
+                if (statusLabel != null) {
+                    if (cancelled) statusLabel.setText("AI triage cancelled after " + fDone + " finding(s).");
+                    else statusLabel.setText("AI triage complete: " + fDone + " processed"
+                            + (fNoise > 0 ? "  |  " + fNoise + " flagged NOISE" : "")
+                            + (fNoVerdict > 0 ? "  |  " + fNoVerdict + " unchanged" : "")
+                            + (fFailed > 0 ? "  |  " + fFailed + " batch(es) failed" : "") + ".");
+                }
+                if (fFailed > 0)
+                    JOptionPane.showMessageDialog(getPanel(),
+                            fFailed + " AI triage batch(es) failed; those findings were left unchanged.\n\nLast error: " + fErr,
+                            "AI Triage", JOptionPane.WARNING_MESSAGE);
+            });
+        });
+    }
 
     /** Sort key for the Issue ID column: reorders SS-MMDDYY-XXXXXX to YY MMDD XXXXXX so sort is chronological. */
     static String issueIdSortKey(String id) {

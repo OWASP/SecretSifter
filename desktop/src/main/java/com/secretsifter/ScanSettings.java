@@ -40,6 +40,10 @@ public class ScanSettings {
     private static final String KEY_VALIDATION_IDS_SET    = "ss.validation_ids_set";    // "1" once the user has saved a selection
     private static final String KEY_VALIDATION_CUSTOM     = "ss.validation_custom";     // newline-separated custom rule lines
     private static final String KEY_VALIDATION_BASEURLS   = "ss.validation_baseurls";   // newline-separated "provider = https://host" lines
+    private static final String KEY_AI_PROVIDER  = "ss.ai_provider";
+    private static final String KEY_AI_API_KEY   = "ss.ai_api_key";
+    private static final String KEY_AI_ENDPOINT  = "ss.ai_endpoint";
+    private static final String KEY_AI_MODEL     = "ss.ai_model";
 
     // ---- fields ----
     private volatile boolean   enabled              = true;
@@ -65,6 +69,12 @@ public class ScanSettings {
     private volatile boolean validationIdsInitialised = false;
     private final List<String> validationCustomRules = new ArrayList<>();
     private final List<String> validationBaseUrls = new ArrayList<>();   // "provider = https://host" lines (self-hosted overrides)
+
+    // AI triage (direct-API). Default provider: Anthropic (no Burp AI in the desktop).
+    private volatile AiTriageProvider.Provider aiProvider = AiTriageProvider.Provider.ANTHROPIC;
+    private volatile String aiApiKey   = "";
+    private volatile String aiEndpoint = "";
+    private volatile String aiModel    = "";
 
     // Key name blocklist — findings whose matched key name contains any entry are suppressed.
     private final List<String> keyBlocklist = new ArrayList<>(Arrays.asList(
@@ -286,6 +296,16 @@ public class ScanSettings {
         return m;
     }
 
+    // AI triage provider configuration
+    public AiTriageProvider.Provider getAiProvider()       { return aiProvider; }
+    public void setAiProvider(AiTriageProvider.Provider p) { if (p != null) aiProvider = p; }
+    public String getAiApiKey()                            { return aiApiKey; }
+    public void   setAiApiKey(String k)                    { aiApiKey  = k != null ? k : ""; }
+    public String getAiEndpoint()                          { return aiEndpoint; }
+    public void   setAiEndpoint(String e)                  { aiEndpoint = e != null ? e : ""; }
+    public String getAiModel()                             { return aiModel; }
+    public void   setAiModel(String m)                     { aiModel   = m != null ? m : ""; }
+
     // =========================================================================
     // Persistence
     // =========================================================================
@@ -315,6 +335,10 @@ public class ScanSettings {
             prefs.setBoolean(KEY_VALIDATION_IDS_SET, validationIdsInitialised);
             prefs.setString(KEY_VALIDATION_CUSTOM,   String.join("\n", validationCustomRules));
             prefs.setString(KEY_VALIDATION_BASEURLS, String.join("\n", validationBaseUrls));
+            prefs.setString(KEY_AI_PROVIDER, aiProvider.name());
+            prefs.setString(KEY_AI_API_KEY,  aiApiKey);
+            prefs.setString(KEY_AI_ENDPOINT, aiEndpoint);
+            prefs.setString(KEY_AI_MODEL,    aiModel);
         } catch (Exception ignored) {
             // Preferences not critical — continue silently
         }
@@ -434,6 +458,13 @@ public class ScanSettings {
             String valBase = prefs.getString(KEY_VALIDATION_BASEURLS);
             if (valBase != null && !valBase.isBlank())
                 setValidationBaseUrls(Arrays.asList(valBase.split("\n")));
+
+            String aiProv = prefs.getString(KEY_AI_PROVIDER);
+            if (aiProv != null) try { aiProvider = AiTriageProvider.Provider.valueOf(aiProv); }
+                                 catch (IllegalArgumentException ignored2) {}
+            String aiKey = prefs.getString(KEY_AI_API_KEY);   if (aiKey != null) aiApiKey   = aiKey;
+            String aiEp  = prefs.getString(KEY_AI_ENDPOINT);  if (aiEp  != null) aiEndpoint = aiEp;
+            String aiMod = prefs.getString(KEY_AI_MODEL);     if (aiMod != null) aiModel    = aiMod;
 
         } catch (Exception ignored) {}
     }
