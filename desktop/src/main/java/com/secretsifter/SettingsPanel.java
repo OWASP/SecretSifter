@@ -37,6 +37,12 @@ public class SettingsPanel {
     private ToggleSwitch  piiBox;
     private ToggleSwitch  scanRequestsBox;
     private ToggleSwitch  liveValidateBox;
+    // Validation sub-tab
+    private JTextArea    validationCustomArea;
+    private JTextArea    validationBaseUrlArea;
+    private javax.swing.table.DefaultTableModel validationModel;
+    private java.util.Set<String> validationEnabledIds = new java.util.HashSet<>();
+    private java.util.List<com.secretsifter.core.ValidationRule> validationCatalog;
     private JTextArea  cdnArea;
     private JTextArea  keyBlocklistArea;
     private JTextArea  keyAllowlistArea;
@@ -185,15 +191,7 @@ public class SettingsPanel {
                 "<html>When enabled, scans outbound request headers (X-API-Key, Authorization, etc.)<br>" +
                 "for hardcoded vendor tokens. JWT Bearer tokens are automatically skipped.</html>");
         topPanel.add(scanRequestsBox);
-
-        liveValidateBox = new ToggleSwitch("Allow live (network) validation", settings.isLiveValidationEnabled());
-        liveValidateBox.setToolTipText(
-                "<html>When the <b>Validate</b> toggle is on (Bulk Scan toolbar), controls whether<br>" +
-                "live provider checks may reach out over the network (AWS, Stripe, GitHub, ...).<br>" +
-                "OFF: only offline checks run (JWT expiry, Luhn) — no outbound requests.<br>" +
-                "ON:  detected keys are tested against their provider's API to confirm they are live.<br>" +
-                "<b>Only enable against systems you are authorized to test.</b></html>");
-        topPanel.add(liveValidateBox);
+        // (Live-validation opt-in lives on the dedicated "Validation" sub-tab below.)
 
         topPanel.add(new JLabel("   Per-URL timeout:"));
         urlTimeoutCombo = new JComboBox<>(URL_TIMEOUT_LABELS);
@@ -340,6 +338,147 @@ public class SettingsPanel {
         customRulesTab.add(customRulesBottom, BorderLayout.SOUTH);
 
         subTabs.addTab("Custom Rules", customRulesTab);
+
+        // ═════════════════════════════════════════════════════════════════════
+        // TAB — Validation  (choose which findings get validated)
+        // ═════════════════════════════════════════════════════════════════════
+        {
+            JPanel valTab = new JPanel(new BorderLayout(8, 6));
+            valTab.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+
+            JTextArea intro = new JTextArea(
+                    "Pick which findings get validated, grouped by provider. Turn validation on from "
+                    + "the Scan tab → Validate; it runs the selected offline checks (JWT expiry, Luhn, your "
+                    + "regex) and sends nothing anywhere. Live (network) entries send the found key to the "
+                    + "provider's endpoint to check if it is still live — that only happens when you enable "
+                    + "the switch below and select the provider.");
+            intro.setEditable(false);
+            intro.setLineWrap(true);
+            intro.setWrapStyleWord(true);
+            intro.setOpaque(false);
+            intro.setBorder(BorderFactory.createEmptyBorder(0, 0, 4, 0));
+            intro.setFont(UIManager.getFont("Label.font"));
+            intro.setForeground(UIManager.getColor("Label.foreground"));
+            intro.setFocusable(false);
+
+            validationCatalog = ValidationCatalog.builtIn();
+            validationEnabledIds = new java.util.HashSet<>(settings.getValidationEnabledIds());
+            String[] vcols = {"On", "Name", "Provider", "Check", "Endpoint (what a live check contacts)"};
+            validationModel = new javax.swing.table.DefaultTableModel(vcols, 0) {
+                @Override public Class<?> getColumnClass(int c) { return c == 0 ? Boolean.class : String.class; }
+                @Override public boolean isCellEditable(int r, int c) { return false; }
+            };
+            java.util.Map<String, String> baseMap = settings.validationBaseUrlMap();
+            for (com.secretsifter.core.ValidationRule vr : validationCatalog)
+                validationModel.addRow(new Object[]{ validationEnabledIds.contains(vr.id()),
+                        vr.name(), vr.provider(), vr.check().label(),
+                        com.secretsifter.core.ValidationEndpoints.resolve(vr.provider(), baseMap.get(vr.provider())) });
+            JTable valTable = new JTable(validationModel);
+            valTable.setRowHeight(22);
+            javax.swing.table.DefaultTableCellRenderer vplain = new javax.swing.table.DefaultTableCellRenderer();
+            vplain.putClientProperty("html.disable", Boolean.TRUE);
+            valTable.setDefaultRenderer(String.class, vplain);
+            valTable.getColumnModel().getColumn(0).setCellRenderer(new ToggleCellRenderer());
+            valTable.addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override public void mousePressed(java.awt.event.MouseEvent e) {
+                    int vcol = valTable.columnAtPoint(e.getPoint());
+                    int vrow = valTable.rowAtPoint(e.getPoint());
+                    if (vcol != 0 || vrow < 0) return;
+                    int mrow = valTable.convertRowIndexToModel(vrow);
+                    boolean cur = Boolean.TRUE.equals(validationModel.getValueAt(mrow, 0));
+                    validationModel.setValueAt(!cur, mrow, 0);
+                }
+            });
+            valTable.getColumnModel().getColumn(0).setMaxWidth(44);
+            valTable.getColumnModel().getColumn(0).setPreferredWidth(44);
+            valTable.getColumnModel().getColumn(1).setPreferredWidth(230);
+            valTable.getColumnModel().getColumn(2).setPreferredWidth(130);
+            valTable.getColumnModel().getColumn(3).setPreferredWidth(150);
+            valTable.getColumnModel().getColumn(4).setPreferredWidth(320);
+            javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel> vsort =
+                    new javax.swing.table.TableRowSorter<>(validationModel);
+            valTable.setRowSorter(vsort);
+            validationModel.addTableModelListener(ev -> {
+                if (ev.getColumn() != 0) return;
+                int row = ev.getFirstRow();
+                if (row < 0 || row >= validationCatalog.size()) return;
+                String id = validationCatalog.get(row).id();
+                if (Boolean.TRUE.equals(validationModel.getValueAt(row, 0))) validationEnabledIds.add(id);
+                else validationEnabledIds.remove(id);
+            });
+
+            JComboBox<String> provCombo = new JComboBox<>();
+            provCombo.addItem("All providers");
+            for (String prov : ValidationCatalog.byProvider().keySet()) provCombo.addItem(prov);
+            JTextField vsearch = new JTextField(16);
+            JButton selShown   = new JButton("Select shown");
+            JButton deselShown = new JButton("Deselect shown");
+            liveValidateBox = new ToggleSwitch("Allow live (network) validation", settings.isLiveValidationEnabled());
+            liveValidateBox.setToolTipText("Off by default. When ON, selected \"Live (network)\" providers are checked by "
+                    + "sending the found key to the provider's verify endpoint (one read-only request). Only enable against "
+                    + "providers/apps you are authorized to test.");
+            JPanel vcontrols = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 2));
+            vcontrols.add(new JLabel("Provider:")); vcontrols.add(provCombo);
+            vcontrols.add(new JLabel("  Search:")); vcontrols.add(vsearch);
+            vcontrols.add(selShown); vcontrols.add(deselShown);
+            vcontrols.add(new JLabel("   ")); vcontrols.add(liveValidateBox);
+
+            Runnable applyVFilter = () -> {
+                String prov = (String) provCombo.getSelectedItem();
+                String q = vsearch.getText().trim().toLowerCase();
+                vsort.setRowFilter(new javax.swing.RowFilter<javax.swing.table.DefaultTableModel, Integer>() {
+                    @Override public boolean include(Entry<? extends javax.swing.table.DefaultTableModel, ? extends Integer> e) {
+                        boolean provOk = prov == null || prov.equals("All providers") || prov.equals(String.valueOf(e.getValue(2)));
+                        boolean qOk = q.isEmpty() || String.valueOf(e.getValue(1)).toLowerCase().contains(q);
+                        return provOk && qOk;
+                    }
+                });
+            };
+            provCombo.addActionListener(e -> applyVFilter.run());
+            vsearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+                public void insertUpdate(javax.swing.event.DocumentEvent e) { applyVFilter.run(); }
+                public void removeUpdate(javax.swing.event.DocumentEvent e) { applyVFilter.run(); }
+                public void changedUpdate(javax.swing.event.DocumentEvent e) { applyVFilter.run(); }
+            });
+            selShown.addActionListener(e -> { for (int v = 0; v < valTable.getRowCount(); v++)
+                    validationModel.setValueAt(Boolean.TRUE, valTable.convertRowIndexToModel(v), 0); });
+            deselShown.addActionListener(e -> { for (int v = 0; v < valTable.getRowCount(); v++)
+                    validationModel.setValueAt(Boolean.FALSE, valTable.convertRowIndexToModel(v), 0); });
+
+            JPanel vnorth = new JPanel(new BorderLayout(0, 4));
+            vnorth.add(intro, BorderLayout.NORTH);
+            vnorth.add(vcontrols, BorderLayout.SOUTH);
+            valTab.add(vnorth, BorderLayout.NORTH);
+            valTab.add(new JScrollPane(valTable), BorderLayout.CENTER);
+
+            validationCustomArea = new JTextArea(String.join("\n", settings.getValidationCustomRules()), 4, 20);
+            validationCustomArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+            validationCustomArea.setToolTipText("One per line: name | regex | STATE | note   "
+                    + "(STATE = ACTIVE, INACTIVE, RESTRICTED or UNKNOWN). "
+                    + "Example:  sandbox key | ^sk_test_ | INACTIVE | our test key");
+            JPanel vcustom = new JPanel(new BorderLayout(4, 2));
+            vcustom.setBorder(new javax.swing.border.TitledBorder(
+                    "Custom validation rules  (name | regex | STATE | note — matched against each finding's value)"));
+            vcustom.add(new JScrollPane(validationCustomArea), BorderLayout.CENTER);
+
+            validationBaseUrlArea = new JTextArea(String.join("\n", settings.getValidationBaseUrls()), 4, 20);
+            validationBaseUrlArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+            validationBaseUrlArea.setToolTipText("Set or override the endpoint a live check uses, one per line. "
+                    + "Provider name must match the table. Self-hosted: GitLab = https://gitlab.yourco.com   "
+                    + "Full endpoint: Z.ai = GET https://api.z.ai/v1/me");
+            JPanel vbase = new JPanel(new BorderLayout(4, 2));
+            vbase.setBorder(new javax.swing.border.TitledBorder(
+                    "Validation endpoints  (Provider = https://your-host, or Provider = GET https://host/path)"));
+            vbase.add(new JScrollPane(validationBaseUrlArea), BorderLayout.CENTER);
+
+            JPanel vsouth = new JPanel(new java.awt.GridLayout(1, 2, 6, 0));
+            vsouth.add(vcustom);
+            vsouth.add(vbase);
+            vsouth.setPreferredSize(new Dimension(10, 130));
+            valTab.add(vsouth, BorderLayout.SOUTH);
+
+            subTabs.addTab("Validation", valTab);
+        }
 
         // ═════════════════════════════════════════════════════════════════════
         // TAB 3 — AI / MCP
@@ -529,6 +668,17 @@ public class SettingsPanel {
         settings.setPiiEnabled(piiBox.isSelected());
         settings.setScanRequestsEnabled(scanRequestsBox.isSelected());
         settings.setLiveValidationEnabled(liveValidateBox.isSelected());
+
+        // Validation sub-tab: selected catalog ids + custom rules + endpoint overrides
+        if (validationModel != null) {
+            settings.setValidationEnabledIds(validationEnabledIds);
+            java.util.List<String> vlines = new java.util.ArrayList<>();
+            for (String l : validationCustomArea.getText().split("\n")) if (!l.isBlank()) vlines.add(l.trim());
+            settings.setValidationCustomRules(vlines);
+            java.util.List<String> blines = new java.util.ArrayList<>();
+            for (String l : validationBaseUrlArea.getText().split("\n")) if (!l.isBlank()) blines.add(l.trim());
+            settings.setValidationBaseUrls(blines);
+        }
 
         List<String> cdn = new ArrayList<>();
         for (String line : cdnArea.getText().split("\n")) { String t = line.trim(); if (!t.isEmpty()) cdn.add(t); }

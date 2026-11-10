@@ -41,6 +41,11 @@ final class Branding {
         return new WatermarkPanel(content);
     }
 
+    /** Pass-through kept for parity with the Burp edition's call sites (boxes are left clean). */
+    static JComponent watermarkInBox(JScrollPane scroll) {
+        return scroll;
+    }
+
     /**
      * Holds {@code content} full-size and paints a faint, centred OWASP owl on top after the
      * content has painted. Transparent to interaction — all components inside stay fully usable.
