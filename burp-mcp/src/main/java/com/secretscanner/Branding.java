@@ -18,9 +18,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * Logos ship in two inks (dark for light themes, light for dark themes) at 1x and 2x; the ink is
  * chosen from Burp's current theme at paint time, so switching Burp's theme needs no reload.
  */
-final class Branding {
+public final class Branding {
 
-    static final String NAME        = "OWASP SecretSifter";
+    static final String NAME        = "OWASP SecretSifter (Burp MCP)";
     static final String TAGLINE     = "Runtime credential exposure detection";
     static final String PROJECT_URL = "https://owasp.org/www-project-secretsifter/";
 
@@ -78,7 +78,7 @@ final class Branding {
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         bar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIManager.getColor("Separator.foreground")));
         bar.add(new LogoView("logo", 24));
-        bar.add(projectLink("SecretSifter"));
+        bar.add(projectLink("OWASP SecretSifter"));
         JLabel url = new JLabel(PROJECT_URL.replaceFirst("^https://", "").replaceFirst("/$", ""));
         url.setForeground(UIManager.getColor("Label.disabledForeground"));
         bar.add(url);
@@ -183,17 +183,25 @@ final class Branding {
                 + rule + "\n";
     }
 
-    /** OWASP logo as inline SVG markup for HTML reports (light ink for dark backgrounds); "" if unavailable. */
+    /** OWASP SecretSifter combo logo as an inline &lt;img&gt; for HTML reports; "" if unavailable. */
     static String logoSvg(boolean lightInk) {
-        String svg = resourceText("/branding/owasp-logo-" + (lightInk ? "light" : "dark") + ".svg");
-        return svg.isEmpty() ? "" : svg.replaceFirst("<svg ", "<svg role=\"img\" aria-label=\"OWASP\" ");
+        String uri = brandmarkUri();
+        return uri.isEmpty() ? "" : "<img src=\"" + uri + "\" role=\"img\" alt=\"OWASP SecretSifter\">";
     }
 
-    /** The OWASP mark (dark ink) as a data: URI, for the report watermark; "" if unavailable. */
+    /** The OWASP SecretSifter combo logo as a data: URI, for the report watermark; "" if unavailable. */
     static String markDataUri() {
-        String svg = resourceText("/branding/owasp-icon-dark.svg");
-        return svg.isEmpty() ? "" : "data:image/svg+xml;base64,"
-                + java.util.Base64.getEncoder().encodeToString(svg.getBytes(StandardCharsets.UTF_8));
+        return brandmarkUri();
+    }
+
+    /** The combo brandmark PNG as a data: URI; "" if the resource is missing. */
+    private static String brandmarkUri() {
+        try (InputStream in = Branding.class.getResourceAsStream("/branding/brandmark.png")) {
+            return in == null ? "" : "data:image/png;base64,"
+                    + java.util.Base64.getEncoder().encodeToString(in.readAllBytes());
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     private static String resourceText(String path) {
