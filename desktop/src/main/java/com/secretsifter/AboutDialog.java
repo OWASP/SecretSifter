@@ -12,7 +12,7 @@ import java.net.URI;
  */
 public class AboutDialog extends JDialog {
 
-    private static final String VERSION = "1.8.1";
+    private static final String VERSION = "1.8.3";
     private static final String AUTHOR  = "Hemanth Gorijala";
     private static final String EMAIL   = "gorijala2k16@gmail.com";
 

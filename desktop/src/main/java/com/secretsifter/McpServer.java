@@ -268,7 +268,7 @@ public class McpServer {
     private JSONObject handleInit() {
         return new JSONObject()
             .put("protocolVersion", "2025-06-18")
-            .put("serverInfo", new JSONObject().put("name", "secretsifter-desktop").put("version", "1.8.1"))
+            .put("serverInfo", new JSONObject().put("name", "OWASP SecretSifter").put("title", "OWASP SecretSifter").put("version", "1.8.3"))
             .put("capabilities", new JSONObject().put("tools", new JSONObject()));
     }
 

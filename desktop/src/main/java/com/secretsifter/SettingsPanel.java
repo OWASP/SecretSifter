@@ -957,7 +957,7 @@ public class SettingsPanel {
         String tok  = mcpServer.getToken();
         return
 "# SecretSifter Desktop — AI / MCP & REST API Setup Guide\n\n" +
-"**Version:** 1.8.1  \n" +
+"**Version:** 1.8.3  \n" +
 "**Transport:** HTTP (JSON-RPC 2.0)  \n" +
 "**Protocol:** MCP 2025-06-18  \n\n" +
 "---\n\n" +
