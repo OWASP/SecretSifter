@@ -14,7 +14,7 @@ Pre-deployment secret scanning looks at source code. Some credentials are only i
 | Burp Suite extension with AI triage and MCP | Build from source | [`burp-mcp/`](burp-mcp) (MIT) |
 | Chrome extension | [Chrome Web Store](https://chromewebstore.google.com/detail/secretsifter-live-credent/okjoofmgkkgopigaipccailblmpcchjo) | Coming soon (MIT, on the roadmap) |
 | Firefox extension | [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/secretsifter-extension/) | Coming soon (MIT, on the roadmap) |
-| Desktop app (macOS, Windows) | [Releases](https://github.com/secretsifter/secretsifter-desktop) | Coming soon (MIT, on the roadmap) |
+| Desktop app (macOS, Windows) | [Releases](https://github.com/OWASP/SecretSifter/releases) | Coming soon (MIT, on the roadmap) |
 | InsecureShield practice target (synthetic credentials only) | [secretsifter/insecureshield-demo](https://github.com/secretsifter/insecureshield-demo) | MIT |
 
 Both Burp editions build with `./gradlew shadowJar` (Java 17+). Each folder has its own README with build and install steps.
