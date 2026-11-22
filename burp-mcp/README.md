@@ -122,7 +122,7 @@ listed above, all of which are user-initiated.
 
 ### 1. Download the JAR
 
-Download `secretsifter-mcp-1.0.0.jar` from the [Releases page](https://github.com/secretsifter/secretsifter-burp-mcp/releases),
+Download `secretsifter-mcp-1.1.2.jar` from the [Releases page](https://github.com/OWASP/SecretSifter/releases) (tag `burp-mcp-v1.1.2`),
 or build it yourself (see [Building from Source](#building-from-source)).
 
 ### 2. Load into Burp
@@ -229,12 +229,12 @@ Expands to all site-map entries for the selected host(s). Optionally save an HTM
 ### Build
 
 ```bash
-git clone https://github.com/secretsifter/secretsifter-burp-mcp
-cd secretsifter-burp-mcp
+git clone https://github.com/OWASP/SecretSifter
+cd SecretSifter/burp-mcp
 ./gradlew shadowJar
 ```
 
-Output: `build/libs/secretsifter-mcp-1.0.0.jar` (~580 KB)
+Output: `build/libs/secretsifter-mcp-1.1.2.jar` (~580 KB)
 
 The build is **reproducible**: anyone cloning this repo and running the same command produces
 a byte-identical JAR (`preserveFileTimestamps = false`, `reproducibleFileOrder = true`).
@@ -250,10 +250,10 @@ Test report: `build/reports/tests/test/index.html`
 ### Verify the JAR matches the published artifact
 
 ```bash
-shasum -a 256 build/libs/secretsifter-mcp-1.0.0.jar
+shasum -a 256 build/libs/secretsifter-mcp-1.1.2.jar
 ```
 
-Expected SHA-256 will be published in the [v1.0.0 Release notes](https://github.com/secretsifter/secretsifter-burp-mcp/releases/tag/v1.0.0).
+Expected SHA-256 is published in the [release notes](https://github.com/OWASP/SecretSifter/releases/tag/burp-mcp-v1.1.2).
 
 ---
 
